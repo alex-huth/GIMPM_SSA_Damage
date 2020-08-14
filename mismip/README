@@ -1,0 +1,22 @@
+TO RUN MISMIP+ MPM-SSA-damage tests
+
+
+ Tests are in the following subdirectories:
+
+ ./steady:
+ -run a steady state MISMIP+ SSA simulation using sMPM/GIMPM
+  as in Part I of Huth et al., 2020
+
+ ./damage:
+ -run MISMIP+ SSA simulations with a damage model, using
+  sMPM/GIMPM as in Part II of Huth et al., 2020. Included
+  damage models:
+
+    -Nonlocal creep damage (Huth et al., 2020, Part II):
+     	       mismip_creep.sif
+    -Zero-stress damage (i.e. Sun et al., 2017):
+    	       mismip_zs.sif
+    -Zero-stress damage (using Bassis and Ma, 2015 mod):
+    	       mismip_zs_mod.sif
+
+

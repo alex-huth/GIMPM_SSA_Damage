@@ -1,0 +1,9 @@
+Sample .sifs for the creep damage, zero stress damage, and modified zero stress damage models.
+
+Each file contains some basic instructions on how to modify parameters to
+reproduce the solutions in Huth et al., 2020 Part II. 
+
+To run: ElmerSolver mismip_creep.sif
+        ElmerSolver mismip_zs.sif
+	ElmerSolver mismip_zs_mod.sif
+

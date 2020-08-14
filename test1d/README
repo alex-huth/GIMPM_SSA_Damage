@@ -1,0 +1,16 @@
+1-D sMPM and GIMPM tests from Huth et al., 2020 Part I.
+
+./frontprop1d contains the front propagation test
+./steady1d contains the steady 1-D test
+
+1. compile the user functions
+elmerf90 USF_1dtest.F90 -o USF_1dtest
+
+2. make the grids, e.g.
+ElmerGrid 1 2 Test1D_5km.grd -autoclean
+
+Both ./frontprop1d and ./steady1d contain a RUN.sh file,
+where the mesh, grid resolution, initial number of
+particle per grid cell, use of the particle reweighting scheme,
+and MPM shape functions can be specified. Modify this file
+accordingly and begin the simulations (source RUN.sh).

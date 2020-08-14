@@ -1,0 +1,664 @@
+!Check Keywords "Warn"
+!echo on
+
+!The difference between this .sif and the mismip_zs.sif is that it includes
+!the necking/mass balance modification
+!What's different:
+!1. Several options pertaining to the modification in Solver 6
+!2. Model % Constants: Output dbassis
+!3. Solver 11: dbassis term
+
+$Mesh = "half_MISMIP_500_orig"
+$Step = "modified_zero_stress_damage_test_iso"
+
+!----main zero stress damage options:---
+!See SSA Solver and modified zero stress damage solvers,
+! and constants for more options
+!0 for isotropic damage
+!1 for anisotropic damage
+$GAMMA =  0.0
+
+!critical damage
+$davcrit = 0.899
+!---------------------
+
+
+!(creep damage only)
+$STHRES = 0.0 
+$alpha = 1.0 
+$beta = 0.0
+
+$yearinsec = 31556926.0
+$rhoi = 918.0/(1.0e6*yearinsec^2)
+$rhow = 1028.0/(1.0e6*yearinsec^2) 
+$gravity = -9.81*yearinsec^2
+$n = 3.0
+$viscexp = 1.0/3.0
+$timestep = 14.0/365.0 
+$firsttimestep = 2.0/365.0 
+
+$A = 20.0
+$B = A^(-1.0/n)
+$eta = (2.0*A)^(-1.0/n)
+
+$timetoheal = 1.0/52.0
+
+
+Header
+  Mesh DB "./.." "$Mesh$"
+End
+
+Constants
+!-------------------------!
+!     ICE PARAMETERS      !
+!-------------------------!
+
+MISMIP tests = Logical True
+
+Ice Density = Real $rhoi
+Water Density = Real $rhow
+Gravity = Real $gravity
+Sea Level = Real 0.0
+
+Maximum Time Step = Real $timestep
+First rkm dt = Real $firsttimestep
+Critical Shear Rate = Real 1.0E-9 
+Viscosity Exponent = Real $viscexp
+
+Number of Particle Layers = Integer 8
+Number of Temperature Layers = Integer 8
+
+Constant Linear Temperature = Logical False
+surftemp = Real -16.702728357631656
+basetemp = Real -2.0
+
+Use Constant Temperature = Logical True
+Constant Temperature = Real -8.930363929212376
+
+Use Given Eta = Logical False
+Given Eta = Real $eta
+
+Constant Friction Parameter = Logical True
+fricparam = Real 1.0e-2
+
+Constant MB Parameter = Logical True
+mbparam = Real 0.0 !3
+
+Constant EF Parameter = Logical True
+efparam = Real 1.0
+
+!-------------------------!
+!         DAMAGE          !
+!-------------------------!
+
+Use Damage = Logical True
+
+!outputs the change in damage due to necking/mass balance
+Output dbassis = Logical True
+Damage Model = String "zero stress"
+!Damage Model = String "creep"
+
+Critical Damage = Real $davcrit 
+Critical Dav = Real $davcrit
+
+!creep dam only 
+DMax I = Real 0.99 
+DMax II = Real 0.98 
+DMax III = Real 0.98
+
+!---zero stress and creep dam
+Dav DMax I = Real 0.9
+Dav DMax II = Real 0.89 
+Dav DMax III = Real 0.89
+
+use rift dmax = Logical True
+rift dmax = Real 0.9
+!-----
+
+!---Forces initially damaged particles to evolve isotropically---
+!Use Isotropic Damage for Initially Damaged Particles = Logical False 
+!Iso Max Damage = Real 0.85
+!Iso Critical Damage = Real 0.85
+!Iso Critical Dav = Real 0.85 
+!--------
+
+!creep dam only-----
+ah = Real $alpha 
+Bf = Real 16.5043 
+Bh = Real $beta 
+k1 = Real 4.0
+k2 = Real 0.0
+gamma = Real $GAMMA
+rf = Real 0.43
+sthres = Real $STHRES 
+
+Dinit Tolerance = Real 1.0e-08
+Dinit Warning Tolerance= Real 5.0e-02 
+Dinit Iters = Integer 5000 
+
+No Init Dam = Logical True 
+
+Ignore Front Damage = Logical False 
+
+!Experimental creep damage symmetry fix following gancarski 2011
+Use Modified Murakami = Logical False
+
+!will not allow any creep dzz accumulation on layers during dDdt
+No Dzz = Logical False 
+
+!realigns all layer creep damage principal directions to those of dav
+!then recalculates dav. Experimental
+Fix Dav Principal Directions = Logical False
+
+Rupture All Damage Components for Rift = Logical True
+Switch to Isotropic Damage at Dav component rupture = Logical False
+
+Min Damage Threshold = Real 1.0e-10
+
+!-----
+
+Restrict Damage = Logical False 
+!Restrict Damage X Min = Real 300000.0
+!Restrict Damage X Max = Real 1000000.0
+!Restrict Damage Y Min = Real -10000.0
+!Restrict Damage Y Max = Real 50000.0
+
+Use No Damage Region = Logical False
+!No Damage Region X Min = Real 
+!No Damage Region X Max = Real 
+!No Damage Region Y Min = Real 
+!No Damage Region Y Max = Real
+
+!-------------------------!
+!        MPM/GIMP         !
+!-------------------------!
+
+Shape Functions = String "gimpm"
+!initial particles per cell
+Particle Element Fraction = Real 9.0 
+Grid Resolution = Real 500.0
+
+Move GL = Logical True
+Use SEP = Logical True
+
+!does this work anymore?
+mixfrac4and9 = Logical False !True 
+
+!for particle allocation/splitting
+Maximum Particle Length = Real 250.0
+Maximum Damaged Particle Length = Real 250.0 
+Maximum Grounding Line Particle Length = Real 250.0
+Dav Split Threshold = Real 0.1
+Number Of Buffer Particles = Integer 0
+
+Use BC for PrevVel = Logical True
+
+Update Particle Velocities for Friction = Logical True 
+Use Coulomb Friction = Logical True 
+Use Saved Basis = Logical True
+
+Always fill not full elements = Logical False
+
+cfl constant = Real 0.9
+
+!-------------------------!
+!      MISCELLANEOUS      !
+!-------------------------!
+
+First Timestep Zero = Logical True
+
+End
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!             SIMULATION              !
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Simulation
+  Coordinate System  = Cartesian 2D 
+  Simulation Type = Transient
+  Timestepping Method = String BDF
+  BDF Order = Integer 2
+  Timestep Intervals = Integer 800000
+   Output Intervals = Integer 0 
+
+  !Timestep Sizes =  Real $timestep
+
+  Timestep Size 
+  Real Procedure "./../../PROG/MPM" "MPMTimestep"
+
+  Steady State Max Iterations = Integer 1
+ 
+ ! Output File = "$Step$.result"
+ ! Post File = "$Step$.vtu"
+
+  max output level = 3
+
+  Restart File = "mismip_spinup.result"
+
+
+  Restart Position = 0
+  Restart Time = Real 0.0
+  Restart Variable 1 = String "h"
+  Restart Variable 2 = String "bed"
+  Restart Variable 3 = String "SSAVelocity"
+
+  Restart Before Initial Conditions = Logical True
+  Initialize Dirichlet Conditions = Logical True 
+End 
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!             BODY                    !
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! The bulk
+Body 1
+Name = "ice"
+  Equation = 1
+  Body Force = 1
+  Material = 1
+  Initial Condition = 1
+End
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!         INITIAL CONDITIONS          !
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Initial Condition 1
+
+  Btz = Real $eta
+  invvisc = Real $eta
+  partible b = Real $eta
+
+  Surface = Real 1.0
+ 
+  icerises = real -1.0
+ 
+  FP = Real 0.01
+
+  PrevVel 1 = Equals SSAVelocity 1
+  PrevVel 2 = Equals SSAVelocity 2
+
+  invvel 1 = Equals SSAVelocity 1
+  invvel 2 = Equals SSAVelocity 2
+
+End
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!            BODY FORCE               !
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Body Force 1
+  Flow BodyForce 1 = Real 0.0                          
+  Flow BodyForce 2 = Real 0.0
+  Flow BodyForce 3 = Real $gravity
+
+  !Each element has 4 nodes, all 4 to be positive to be a passive elem?
+  Passive Element Min Nodes = Integer 1
+
+  SSAVelocity Passive = Variable Surface
+    Real Procedure "./../../PROG/USF_MPM" "getpassive"
+
+  H Lower Limit = Real 1.0
+End
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!             MATERIAL                  !
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Material 1               
+
+  Viscosity Model = String "power law"
+
+  SSA Mean Density = Real $rhoi
+  SSA Mean Viscosity = Real $eta
+  !"Particle B"
+ 
+  Critical Shear Rate = Real 1.0e-9
+  Viscosity Exponent = Real 1.0/3.0
+
+  SSA Friction Law = String "coulomb"
+  SSA Min Effective Pressure = Real 1.0e-6
+ ! ! Needed for Linear, Weertman and Coulomb 
+  SSA Friction Parameter = Real 1.0e-2
+ ! ! Needed for Weertman and Coulomb
+  SSA Friction Exponent = Real $1.0/n
+  SSA Friction Linear Velocity = Real 0.0001
+ ! ! Needed for Coulomb only
+  SSA Friction Post-Peak = Real 1.0
+  SSA Friction Maximum Value = Real 0.5
+
+  Min H = Real 1.0
+
+End
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!		SOLVERS		       !
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+Solver 2
+exec solver = "before all"
+  Equation = "Initial Floatation"
+  Procedure = File "./../../PROG/MPM_Floatation" "Floatation"
+  Variable = "Mask"
+  Bottom Surface Name = String "Zb" 
+  Top Surface Name = String "Zs"
+  Thickness Variable Name = String "H"
+End
+
+Solver 3
+exec solver = "before all"
+  Equation = "MPM  Init"
+  Procedure = "./../../PROG/MPM" "MPM_Initialize"
+ 
+  Initialization Condition Variable = String Surface
+
+  Passive Mask Variable Name = String "Surface"
+  InvVisc Variable Name = String "InvVisc"
+  Velocity Variable Name = String "SSAVelocity"
+  Additional Initial D Variable Name = String "Rift2"
+  Thickness Variable Name = String "H"  
+  Friction Parameter Name = String "FP"
+  Surface Height Variable Name = String "Zs"
+  Damage Mask Variable Name = String "Mask"
+  EF Variable Name = String "EF"
+  Bedrock Variable Name = String "bed"  
+End
+
+Solver 4
+!Exec Solver = never
+  Equation = "SSA Solver"
+  Variable = -dofs 2 "SSAVelocity"
+  Procedure = "./../../PROG/MPM" "MPM_SSA"
+
+  Calculate Loads = Logical True
+  Apply Limiter =  True
+
+  GL integration points number = Integer 9
+  Particle Reweighting = Logical False
+ 
+  xpic m = Integer 5 
+  xpic interval = Integer 1
+
+
+  !----- ZERO STRESS OPTIONS: -----
+  
+  Use Zero Stress Damage = Logical True
+  
+  !let SSA solver finish without zero stress first,
+  !then activate combined zero stress SSA solver
+  !usually little impact, but can help with stability
+  Converge before zs = Logical True !False
+  
+  !surface crevasses (1),basal crevasses(-1), or both (0, default)?
+  !zero stress surface = Integer 0
+
+  !options to initialize a zero stress damage field,
+  !and then turn it into 3-D damage for creep damage simulations
+  !Use Zero Stress Damage First Timestep Only = Logical True
+  !Assign Zero Stress Damage To Layers = Logical True
+
+  !--------------------------------
+
+  Use FEM MinMax = Logical False 
+  FEM Min x = Real -1.0
+  FEM Max x = Real 300000.0
+
+  Use FEM for Friction = Logical False
+
+  Linear System Solver = Iterative
+  Linear System Iterative Method = BiCGStab
+  Linear System Max Iterations = 100 
+  Linear System Preconditioning = "ILU2"
+  Linear System Convergence Tolerance = 1.0e-6 
+  Linear System Abort Not Converged = True
+  Nonlinear System Max Iterations = 100 !200
+  Nonlinear System Convergence Tolerance  = 1.0e-6 
+  Nonlinear System Newton After Iterations = 100 
+  Nonlinear System Newton After Tolerance = 5.0e-4 
+  Nonlinear System Relaxation Factor = 0.925 
+  
+  Use Adaptive Relaxation = Logical False 
+  Adaptive Norm Mult Threshold = Real 1.5
+  
+  Steady State Convergence Tolerance = Real 1.0e-3
+
+  Linear System Abort Not Converged = Logical False
+
+  Max Norm = Real 250000.0
+
+  Exported Variable 1 = -dofs 1 "zb"
+  Exported Variable 2 = -dofs 2 "Vstar"
+  Exported Variable 3 = -dofs 2 "Vplus"
+  Exported Variable 4 = -dofs 1 "rift"
+  Exported Variable 5 = -dofs 1 "EF"
+  Exported Variable 6 = -dofs 1 "Particle B"
+  Exported Variable 7 = -dofs 1 "weight"
+  Exported Variable 8 = -dofs 1 "Effective Pressure"
+  Exported Variable 9 = -dofs 4 "Mesh Damage"
+
+  Filename Prefix = String "$Step$_fail"   
+  Filename Directory = String "./fail/"
+  Ascii Output = Logical True
+
+  Output Format = String "vtu"
+  Save All = Logical True
+End
+
+
+Solver 5
+!exec solver = never
+  Equation = "update particle position and constants, splitting"
+  Procedure = "./../../PROG/MPM" "ParticleUpdates"
+
+  Update GIMPM with Corners = Logical True  
+End
+
+Solver 6
+!note that this solver also updates thickness
+  Equation = "modified zero stress damage"
+  Procedure = "./../../PROG/MPM" "UpdateDamageModifiedZeroStress"
+
+  CFL const = Real 0.9
+  cflonly = Logical False 
+
+  !melt rate
+  Use melt for floating = Logical False
+  crevasse melt rate = real 0.0
+
+  !true if do NOT want the modified model
+  zero stress only = Logical False
+
+  Link with zero stress = Logical True 
+  Allow Grounded Damage = Logical True
+
+  !skip particles with damage that was assigned
+  !at the first timestep
+  Skip IsoDam Particles = Logical False
+
+  Snow Density = Real 0.0
+
+ !runge-kutta-merson
+  RKM = Logical True
+
+  Maximum Allowed dDdt = Real 0.05 
+  Target dDdt = Real 0.05
+  Damage Convergence Tolerance = Real 1.0e-5
+End
+
+Solver 7
+  Equation = "update particle H and Mass"
+  Procedure = "./../../PROG/MPM" "UpdateParticleHandMass"
+
+  !set true if using zero-stress damage
+  no h update = Logical True 
+End
+
+Solver 8
+  Equation = "update H,Velocity,Binit on Mesh from Particles"
+  Procedure = "./../../PROG/MPM" "ParticlesToMesh"
+End
+
+Solver 9
+!exec solver = never
+  Equation = "Floatation"
+  Procedure = File "./../../PROG/MPM_Floatation" "Floatation"
+  Variable = "Mask"
+  Bottom Surface Name = String "Zb" 
+  Top Surface Name = String "Zs"
+  Thickness Variable Name = String "H"
+End
+
+Solver 10
+!exec solver = never
+  Equation = "update particle Gmask,bed,gradzs,gradvel,ef,fp,binit,gridvel"
+  Procedure = "./../../PROG/MPM" "MeshToParticles"
+End
+
+Solver 11
+!Exec Solver = never
+  Procedure = "./../../PROG/MPM" "SaveParticleData"
+  Equation = "save stuff"
+
+  Ascii Output = Logical True
+
+  Output Format = String "vtu"
+  Output Interval = Integer 10
+
+  Use Output Interval = Logical False 
+
+  Save Interval = Real 2.0 
+
+  Use Always Save Time = Logical False 
+  Always Save Time = Real 0.258  
+
+  Use MISMIP Final Damage Save = Logical True 
+
+  StopTime = Real 32.0 
+
+  Min X To Save Particle = Real 350000.0
+
+  Filename Prefix = String $Step
+
+  Filename Directory = String "./results/"
+
+  Vector Field 1 = String "velocity"
+  Vector Field 2 = String "length"
+  Vector Field 3 = String "principal_strain_rates"
+  Vector Field 4 = String "psre_two"
+  Vector Field 5 = String "dav"  
+  Vector Field 6 = String "principal_damage"
+  Vector Field 7 = String "pde_two"
+  Vector Field 8 = String "pdse_two"
+  Vector Field 9 = String "eff_pdse_two"
+  Vector Field 10 = String "eff_pds"
+  Vector Field 11 = String "principal_deviatoric_stresses"
+  Vector Field 12 = String "deviatoric_stresses"  
+  !Vector Field  = String "damage"
+  !Vector Field  = String "gradvel"  
+  !Vector Field  = String "xpic"
+  !Vector Field  = String "damage"
+  !Vector Field  = String "damage"
+  !Vector Field  = String "damageii"
+  !Vector Field  = String "damageiii"
+  !Vector Field  = String "bz"
+  !Vector Field  = String "pde_one"
+  !Vector Field  = String "pde_three"
+  !Vector Field  = String "dd"
+  !Vector Field  = String "gridvelocity"  
+  !Vector Field  = String "gradzs"
+  !Vector Field  = String "strain"
+  !Vector Field  = String "nextcoordinate"
+  !Vector Field  = String "f"
+
+  Scalar Field 1 = String "h"
+  Scalar Field 2 = String "particle time"
+  Scalar Field 3 = String "gmask"
+  Scalar Field 4 = String "no"
+  Scalar Field 5 = String "origno"
+
+    !saves the output due to necking and mass balance
+  Scalar Field 6 = String "dbassis"
+  !Scalar Field  = String "damstatus"
+  !Scalar Field  = String "mb"
+  !Scalar Field  = String "healtime"
+  !Scalar Field  = String "viscosity"
+  !Scalar Field  = String "bedrock"
+  !Scalar Field  = String "gvolume"
+  !Scalar Field  = String "pvolume"
+  !Scalar Field  = String "mass"  
+  !Scalar Field  = String "binit"
+  !Scalar Field  = String "status"
+  !Scalar Field  = String "ef"
+  !Scalar Field  = String "ElementIndex"
+  !Scalar Field  = String "binit"
+  !Scalar Field  = String "particle dt"
+  !Scalar Field  = String "fp"
+End
+
+
+Solver 1
+  Exec Solver = never
+  Equation = "Navier-Stokes"
+   Stabilization Method = String Bubbles
+   Flow Model = Stokes
+
+   Exported Variable 1 = -dofs 1 "surface"
+   Exported Variable 2 = -dofs 1 "H"
+   Exported Variable 3 = -dofs 1 "btz"
+   Exported Variable 4 = -dofs 1 "MB"
+   Exported Variable 5 = -dofs 1 "mass"
+   Exported Variable 6 = -dofs 1 "TempVar"
+   Exported Variable 7 = -dofs 1 "fp"
+   Exported Variable 8 = -dofs 1 "invvisc"
+   Exported Variable 9 = -dofs 1 "mask"
+   Exported Variable 10 = -dofs 1 "rift2"
+   Exported Variable 11 = -dofs 1 "dmask"
+   Exported Variable 12 = -dofs 1 "zs"
+   Exported Variable 13 = -dofs 2 "invvel"
+   Exported Variable 14 = -dofs 2 "ssavelocity"   
+   Exported Variable 15 = -dofs 2 "PrevVel"
+   Exported Variable 16 = -dofs 1 "btrack"
+   Exported Variable 17 = -dofs 1 "icerises"
+End
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!           EQUATION                 !
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+Equation 1
+  Active Solvers(11) = 1 2 3 4 5 6 7 8 9 10 11 
+End
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!       BOUNDARY CONDITIONS          !
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+! Grounded 
+Boundary Condition 1
+Target Boundaries(1) = 4
+  SSAVelocity 1 = Real 0.0
+  SSAVelocity 2 = Real 0.0
+  PrevVel 1 = Equals SSAVelocity 1
+  PrevVel 2 = Equals SSAVelocity 2
+  !VPlus 1 = Real 0.0
+End
+
+Boundary Condition 2
+  Target Boundaries(2) = 1 3
+  
+  SSAVelocity 2 = Real 0.0
+  PrevVel 2 = Real 0.0
+  !VPlus 2 = Real 0.0
+End
+
+! Front
+Boundary Condition 3
+  Target Boundaries(1) = 2
+  Calving Front = Logical True
+End
+
+Boundary Condition 5
+  Target Boundaries(1) = 5
+  Passive Target = Logical True
+  Calving Front = Logical True
+End
+  

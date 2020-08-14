@@ -1,0 +1,5 @@
+In this test, a passive scalar is assigned to the MISMIP+ configuration
+(see subroutine AdvectRiftsTest), and is advected for 100 years
+using GIMPM, as in Huth et al., 2020 Part I.
+
+To run: ElmerSolver mismip_steady.sif

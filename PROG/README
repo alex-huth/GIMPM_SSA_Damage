@@ -1,0 +1,5 @@
+To compile, run the following:
+
+make
+elmerf90 MPM_Floatation.F90 -o USF_Floatation
+elmerf90 USF_MPM.F90 -o USF_MPM

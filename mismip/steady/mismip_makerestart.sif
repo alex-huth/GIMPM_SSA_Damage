@@ -1,0 +1,148 @@
+!Check Keywords "Warn"
+!echo on
+
+$Mesh = "half_MISMIP_500_orig"
+$Step = "mismip_spinup"
+
+
+Header
+  Mesh DB "./.." "$Mesh$"
+End
+
+Constants
+
+End
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!             SIMULATION              !
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Simulation
+  Coordinate System  = Cartesian 2D 
+  Simulation Type = Steady !Transient
+  Timestepping Method = String BDF
+  BDF Order = Integer 2
+  
+  !will stop at ~100 years automatically
+  Timestep Intervals = Integer 1 !800000 
+   Output Intervals = Integer 1
+
+  Timestep Sizes =  Real 1.0
+
+
+  Steady State Max Iterations = Integer 1
+ 
+  Output File = "$Step$.result"
+ ! Post File = "$Step$.vtu"
+
+  max output level = 3
+
+  Restart File = "mismip_pspinup.result"
+
+  Restart Position = 0
+  Restart Time = Real 0.0
+  Restart Variable 1 = String "h"
+  Restart Variable 2 = String "bed"
+  Restart Variable 3 = String "SSAVelocity"
+
+  Restart Before Initial Conditions = Logical True
+  Initialize Dirichlet Conditions = Logical True 
+End 
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!             BODY                    !
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! The bulk
+Body 1
+Name = "ice"
+  Equation = 1
+  Body Force = 1
+  Material = 1
+  Initial Condition = 1
+End
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!         INITIAL CONDITIONS          !
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Initial Condition 1
+
+
+End
+
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!            BODY FORCE               !
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Body Force 1
+
+H = Variable "h"
+    Real MATC "tx + 0.0"
+End
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!             MATERIAL                  !
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Material 1               
+
+  Viscosity Model = String "power law"
+
+End
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!		SOLVERS		       !
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+Solver 1
+ Equation = String "UpdateExport"
+ Procedure = "ElmerIceSolvers" "UpdateExport"
+
+ Exported Variable 1 = "H"
+End
+
+
+Solver 2
+  Exec Solver = never
+  Equation = "Navier-Stokes"
+   Stabilization Method = String Bubbles
+   Flow Model = Stokes
+
+   Exported Variable 1 = -dofs 1 "bed"
+   Exported Variable 2 = -dofs 2 "ssavelocity"
+
+End
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!           EQUATION                 !
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+Equation 1
+  Active Solvers(2) = 1 2
+End
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!       BOUNDARY CONDITIONS          !
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+! Grounded 
+Boundary Condition 1
+Target Boundaries(1) = 4
+  SSAVelocity 1 = Real 0.0
+  SSAVelocity 2 = Real 0.0
+End
+
+Boundary Condition 2
+  Target Boundaries(2) = 1 3
+  
+  SSAVelocity 2 = Real 0.0
+End
+
+! Front
+Boundary Condition 3
+  Target Boundaries(1) = 2
+End
+
+

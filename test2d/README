@@ -1,0 +1,10 @@
+#2-D front propagation test from Huth et al., 2020 Part I
+
+#to make mesh:
+ElmerGrid 14 2 hoop_smpm_10deg_rotated.msh -autoclean
+
+#to compile user functions:
+elmerf90 USF_hoop.F90 -o USF_hoop
+
+#to run:
+ElmerSolver hooptest_smpm.sif
