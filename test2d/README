@@ -1,4 +1,4 @@
-#2-D front propagation test from Huth et al., 2020 Part I
+#2-D front propagation test from Huth et al., 2021 Part I
 
 #to make mesh:
 ElmerGrid 14 2 hoop_smpm_10deg_rotated.msh -autoclean

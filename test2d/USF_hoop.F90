@@ -6,8 +6,8 @@ FUNCTION hoopsurf(Model,nodenumber,VarIn) RESULT(VarOut)
   INTEGER :: nodenumber
   REAL(kind=dp) :: VarIn(2),VarOut,x,y,r,buffer,yc
   LOGICAL:: Visited,GotIt
-  
-  r = 70000.0_dp 
+
+  r = 70000.0_dp
   x = ABS(VarIn(1))
   y = ABS(VarIn(2))
 
@@ -20,7 +20,7 @@ FUNCTION hoopsurf(Model,nodenumber,VarIn) RESULT(VarOut)
         VarOut = 1.0_dp
      ELSE
         VarOut = -1.0_dp
-     END IF     
+     END IF
   END IF
 
 End FUNCTION hoopsurf
@@ -61,14 +61,14 @@ FUNCTION upstream_yvel_adj(Model,nodenumber,VarIn) RESULT(VarOut)
   x = VarIn(1)
   y = VarIn(2)
   mag = VarIn(3)
-  
+
   IF (y<0.0_dp) THEN
      y = -y
      mag = -mag
   END IF
-  
+
   IF (x == 0.0_dp) THEN
-     VarOut = mag     
+     VarOut = mag
   ELSE
      theta = y/x
      VarOut = mag * theta/sqrt(1.0_dp+theta*theta)
@@ -96,5 +96,5 @@ FUNCTION constantvarssmpm(Model,nodenumber,VarIn) RESULT(VarOut)
   ELSE
      VarOut = -1.0_dp
   END IF
-  
+
 End FUNCTION constantvarssmpm

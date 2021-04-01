@@ -17,20 +17,20 @@ End
 !             SIMULATION              !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 Simulation
-  Coordinate System  = Cartesian 2D 
+  Coordinate System  = Cartesian 2D
   Simulation Type = Steady !Transient
   Timestepping Method = String BDF
   BDF Order = Integer 2
-  
+
   !will stop at ~100 years automatically
-  Timestep Intervals = Integer 1 !800000 
+  Timestep Intervals = Integer 1 !800000
    Output Intervals = Integer 1
 
   Timestep Sizes =  Real 1.0
 
 
   Steady State Max Iterations = Integer 1
- 
+
   Output File = "$Step$.result"
  ! Post File = "$Step$.vtu"
 
@@ -45,8 +45,8 @@ Simulation
   Restart Variable 3 = String "SSAVelocity"
 
   Restart Before Initial Conditions = Logical True
-  Initialize Dirichlet Conditions = Logical True 
-End 
+  Initialize Dirichlet Conditions = Logical True
+End
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !             BODY                    !
@@ -84,7 +84,7 @@ End
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !             MATERIAL                  !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-Material 1               
+Material 1
 
   Viscosity Model = String "power law"
 
@@ -127,7 +127,7 @@ End
 !       BOUNDARY CONDITIONS          !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-! Grounded 
+! Grounded
 Boundary Condition 1
 Target Boundaries(1) = 4
   SSAVelocity 1 = Real 0.0
@@ -136,7 +136,7 @@ End
 
 Boundary Condition 2
   Target Boundaries(2) = 1 3
-  
+
   SSAVelocity 2 = Real 0.0
 End
 
@@ -144,5 +144,3 @@ End
 Boundary Condition 3
   Target Boundaries(1) = 2
 End
-
-

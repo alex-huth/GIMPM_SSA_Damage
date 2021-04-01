@@ -1,39 +1,46 @@
 #!/bin/bash
 
-wm='Test1D_5km'
-#'Test1D_10km'
+wm=(Test1D_10km Test1D_5km Test1D_2.5km Test1D_1.25km Test1D_0.625km)
 
 #grid resolution
-r='5000'
-#'10000'
+res=(10000 5000 2500 1250 625)
 
 #shape function
-whichsf='gimpm' #smpm'
+whichsf='gimpm smpm'
 
 #initial particles per grid cell
-ppe='9' #9 16'
+ppe='4 9 16'
 
 #use particle reweighting?
-reweight='false' # true'
+reweight='false true'
 
-for i in $whichsf	 
-do
-    for j in $ppe   
+#for m in $wm
+for ((i = 0; i < ${#wm[@]}; ++i)); do
+    m=(${wm[$i]})
+    r=(${res[$i]})
+    for s in $whichsf
     do
-	for k in $reweight	 
+	for k in $reweight
 	do
+	    if [ $s == 'gimpm' ] && [ $k == 'true' ]
+	    then
+		echo "Skipping reweight==true for gimpm"
+		continue
+	    fi
+	    for j in $ppe
+	    do
 
-		echo $wm
+		echo $m
 		echo $r
-  		echo $i
-		echo $j		
+  		echo $s
 		echo $k
-		
-		sed  "s/<sf>/$i/; s/<ppe>/$j/; s/<m>/$wm/; s/<gr>/$r/; s/<rw>/$k/g" \
-		     steady1d.sif > steady_5k.sif
-		
-		ElmerSolver steady_5k.sif
-		#rm steady_5k.sif
+		echo $j
+
+		sed  "s/<sf>/$s/; s/<ppe>/$j/; s/<m>/$m/; s/<gr>/$r/; s/<rw>/$k/g" \
+		     steady1d.sif > steady_1d.sif
+
+		ElmerSolver steady_1d.sif
+	    done
 	done
     done
 done

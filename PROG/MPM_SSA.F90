@@ -3,7 +3,7 @@
 !! for the MPM version is that particles (material points) serve as the integration
 !! points. Variables that update each iteration are mapped to material points in the
 !! subroutine UpdateSSAParticleVals. Matrix assembly using the particles occurs in
-!! subroutine LocalMatrixUVSSAMPM. Optionally, matrix assembly for some parts of the domain may 
+!! subroutine LocalMatrixUVSSAMPM. Optionally, matrix assembly for some parts of the domain may
 !! be performed using the usual FEM routines (LocalMatrixUVSSAFEM, and when using damage,
 !! LocalMatrixUVSSAFEMDamage) when MPM isn't necessary for the entire ice domain. The FEM subroutines
 !! are also called for bulk element matrix assembly at the ice front (see Huth et al 2020, Part I).
@@ -22,11 +22,11 @@ SUBROUTINE MPM_SSA( Model,Solver,dt,TransientSimulation )
   !
   !  ARGUMENTS:
   !
-  !  TYPE(Model_t) :: Model,  
+  !  TYPE(Model_t) :: Model,
   !     INPUT: All model information (mesh, materials, BCs, etc...)
   !
   !  TYPE(Solver_t) :: Solver
-  !     INPUT: Linear & nonlinear equation solver options 
+  !     INPUT: Linear & nonlinear equation solver options
   !
   !  REAL(KIND=dp) :: dt,
   !     INPUT: Timestep size for time dependent simulations
@@ -121,6 +121,8 @@ SUBROUTINE MPM_SSA( Model,Solver,dt,TransientSimulation )
   INTEGER, POINTER :: BTrackPerm(:),mfperm(:),bmperm(:),opperm(:)
   REAL(KIND=dp), POINTER :: BtrackVal(:),mf(:) ,bmval(:), op(:)
 
+  REAL(KIND=dp) :: a_cm,a_secondsperyear,a_H0,a_v0,a_Q0,a_B0,a_A,a_C,a_EeExp,a_Acm,a_m1,a_m2
+
   SAVE rhow,sealevel, gravity, rhoi, gridres, NodalDensity,zssurf,convbefzs
   SAVE STIFF, LOAD, FORCE, AllocationsDone, DIM, SolverName, ElementNodes
   SAVE NodalU, NodalV, NodalD, NodeIndexes, NodalH,CriticalDav,Visited, count
@@ -170,16 +172,16 @@ SUBROUTINE MPM_SSA( Model,Solver,dt,TransientSimulation )
 
   MP % DSRxx => Particles % dD(1:NoP,1,1)
   MP % DSRyy => Particles % dD(1:NoP,1,2)
-  MP % DSRxy => Particles % dD(1:NoP,1,3)    
+  MP % DSRxy => Particles % dD(1:NoP,1,3)
   MP % eta   => Particles % dD(1:NoP,1,4)
 
   MP % muder      => Particles % dD(1:NoP,2,1)
-  MP % slip       => Particles % dD(1:NoP,2,2)       
+  MP % slip       => Particles % dD(1:NoP,2,2)
   MP % driveforce => Particles % dD(1:NoP,2,3:4)
 
   MP % GradVel      => Particles % dD(:,3,1:4)
   MP % GridVelocity => Particles % dD(:,4,1:2)
-  
+
   MP % Ezz => Particles % dD(1:NoP,4,3)
   MP % Exy => Particles % dD(1:NoP,4,4)
 
@@ -231,7 +233,7 @@ SUBROUTINE MPM_SSA( Model,Solver,dt,TransientSimulation )
 
      CALL Info(SolverName,'MPM interpolation of gradvel to particles...',Level=4)
      !3 is a dummy
-     CALL MPMMeshVectorToParticle(Particles, Model, 1,3 ) 
+     CALL MPMMeshVectorToParticle(Particles, Model, 1,3 )
      CALL Info(SolverName,'interpolation done',Level=4)
 
      !gradzs and falpha to particles
@@ -311,7 +313,7 @@ SUBROUTINE MPM_SSA( Model,Solver,dt,TransientSimulation )
      END IF
   END DO
 
-  j = 0  
+  j = 0
   DO i = ElemFirst,ElemLast
      j=j+1
      Element => Mesh % Elements( i )
@@ -367,7 +369,7 @@ SUBROUTINE MPM_SSA( Model,Solver,dt,TransientSimulation )
 
   ! Vplus is just used for storage purposes
   Vstore => VariableGet(Model % Mesh % Variables, 'Vplus' )
-  IF (.NOT. ASSOCIATED(Vstore)) CALL Fatal(SolverName,'Vplus does not exist ')            
+  IF (.NOT. ASSOCIATED(Vstore)) CALL Fatal(SolverName,'Vplus does not exist ')
   VstorePerm => Vstore % Perm
   VstoreVal => Vstore % Values
 
@@ -530,7 +532,7 @@ SUBROUTINE MPM_SSA( Model,Solver,dt,TransientSimulation )
      M = Model % Mesh % NumberOfNodes
 
 
-     IF (AllocationsDone) DEALLOCATE(FORCE, LOAD, STIFF, & 
+     IF (AllocationsDone) DEALLOCATE(FORCE, LOAD, STIFF, &
           NodalH, NodalGravity,NodalViscosity,& !NodalBTrack,NodalBM,&
           NodalZb, NodalZs, NodalBeta, NodalLinVelo,  NodalGM,&
           NodalBed,NodalU, NodalV, NodalDensity, ElementNodes % x, &
@@ -542,7 +544,7 @@ SUBROUTINE MPM_SSA( Model,Solver,dt,TransientSimulation )
      END IF
 
 
-     ALLOCATE( FORCE(STDOFs*N), LOAD(N), STIFF(STDOFs*N,STDOFs*N), & 
+     ALLOCATE( FORCE(STDOFs*N), LOAD(N), STIFF(STDOFs*N,STDOFs*N), &
           NodalH(N), NodalGravity(N), NodalViscosity(N), & !NodalBTrack(N),NodalBM(N),&
           NodalZb(N), NodalZs(N),NodalBeta(N), NodalLinVelo(N),  &
           NodalGM(N),NodalBed(N),NodalU(N), NodalV(N), NodalDensity(N), &
@@ -602,9 +604,9 @@ SUBROUTINE MPM_SSA( Model,Solver,dt,TransientSimulation )
   END IF
 
   ! Read the Viscosity exponent m in MMaterial Section
-  ! Same definition as NS Solver in Elmer - n=1/m , A = 1/ (2 eta^n) 
+  ! Same definition as NS Solver in Elmer - n=1/m , A = 1/ (2 eta^n)
   cn = GetConstReal( Model % Constants, 'Viscosity Exponent', GotIt )
-  IF (.NOT. GotIt) CALL Fatal(Solvername,'Need to define "Viscosity Exponent = Real $1/n" in constants')     
+  IF (.NOT. GotIt) CALL Fatal(Solvername,'Need to define "Viscosity Exponent = Real $1/n" in constants')
   MinSRInv = GetConstReal( Model % Constants, 'Critical Shear Rate', GotIt )
   IF (.NOT. GotIt) CALL Fatal(Solvername,'Need to define "Critical Shear Rate = Real $1crit" in constants')
 
@@ -616,9 +618,9 @@ SUBROUTINE MPM_SSA( Model,Solver,dt,TransientSimulation )
   END DO
 
   Material => GetMaterial(Element)
-  Friction = GetString(Material, 'SSA Friction Law', Found) 
+  Friction = GetString(Material, 'SSA Friction Law', Found)
   IF (.NOT.Found) CALL FATAL(SolverName,'Could not find Material keyword >SSA Friction Law<')
-  SELECT CASE(Friction) 
+  SELECT CASE(Friction)
   CASE('linear')
      iFriction = 1
      fm = 1.0_dp
@@ -708,7 +710,7 @@ SUBROUTINE MPM_SSA( Model,Solver,dt,TransientSimulation )
           minN,LinVelo,PostPeak,FricMaxVal,sealevel,&
           newton,usezerostressdamage,count,applyzerostress,UseFemMinMax,&
           FemMinX,FemMaxX,gridres,zssurf)
-   
+
 
 
      !-------------------------------------------------------------------------------
@@ -764,10 +766,10 @@ SUBROUTINE MPM_SSA( Model,Solver,dt,TransientSimulation )
         !----------------------------------- FEM STUFF -------------------------------------!
         IF (ElemTrack(ei) % Status == FEM .OR. UseFem) THEN
 
-           Friction = GetString(Material, 'SSA Friction Law', Found) 
+           Friction = GetString(Material, 'SSA Friction Law', Found)
            IF (.NOT.Found) &
                 CALL FATAL(SolverName,'Could not find Material keyword >SSA Friction Law<')
-           SELECT CASE(Friction) 
+           SELECT CASE(Friction)
            CASE('linear')
               iFriction = 1
               fm = 1.0_dp
@@ -818,7 +820,7 @@ SUBROUTINE MPM_SSA( Model,Solver,dt,TransientSimulation )
               NodalBed(1:n)=BedrockSol%Values(BedrockSol%Perm(NodeIndexes(1:n)))
            ENDIF
 
-           IF (ElemTrack(ei) % Status == FEM .OR. UseFem) THEN         
+           IF (ElemTrack(ei) % Status == FEM .OR. UseFem) THEN
 
               IF (Particles % usedamage) THEN
 
@@ -905,7 +907,7 @@ SUBROUTINE MPM_SSA( Model,Solver,dt,TransientSimulation )
         BC => GetBC()
         IF (.NOT.ASSOCIATED( BC ) ) CYCLE
 
-        CalvingFront=.False. 
+        CalvingFront=.False.
         CalvingFront = ListGetLogical( BC, 'Calving Front', GotIt )
 
 
@@ -998,8 +1000,8 @@ SUBROUTINE MPM_SSA( Model,Solver,dt,TransientSimulation )
                 'Nonlinear System Relaxation Factor', NewRelax )
 
            WRITE( Message, * ) 'New Relaxation Factor : ', NewRelax
-           CALL Info(SolverName, Message, Level=1 )   
-           RelaxationAdapted = .TRUE.        
+           CALL Info(SolverName, Message, Level=1 )
+           RelaxationAdapted = .TRUE.
         END IF
         GOTO 100
      END IF
@@ -1021,9 +1023,9 @@ SUBROUTINE MPM_SSA( Model,Solver,dt,TransientSimulation )
         CALL Info(Solvername,'interpolation done',Level=4)
      ELSE
         CALL Info(Solvername,&
-             'interpolation of gradvel and gridvel to particles',Level=4)        
+             'interpolation of gradvel and gridvel to particles',Level=4)
         CALL MPMMeshVectorToParticle(Particles, Model, 1, 3 )
-        CALL Info(Solvername,'interpolation done',Level=4)     
+        CALL Info(Solvername,'interpolation done',Level=4)
      END IF
 
 
@@ -1033,7 +1035,7 @@ SUBROUTINE MPM_SSA( Model,Solver,dt,TransientSimulation )
      !Halve the relaxation factor.  Hopefully, now it will converge.
      !Otherwise, will try to convert to purely picard iterations
      !until convergence...
-     IF (VisitedAdaptRelax .AND. UNorm> StartNewtonNorm*NormMultThres) THEN 
+     IF (VisitedAdaptRelax .AND. UNorm> StartNewtonNorm*NormMultThres) THEN
 
         !Here, vstoreval is  used for storage
         VariableValues(STDOFs*(Permutation(:)-1)+1) = VstoreVal(2*(VstorePerm(:)-1)+1)
@@ -1043,20 +1045,20 @@ SUBROUTINE MPM_SSA( Model,Solver,dt,TransientSimulation )
         Particles % GridVelocity(:,1:2) = MP % GridVelocity(:,1:2)
 
         IF (.NOT. RelaxationAdapted) THEN
-           CALL Info(Solvername,'SOL DIVERGING, HALVING RELAXATION AND RESTARTING NEWTON ITERS',Level=1)   
+           CALL Info(Solvername,'SOL DIVERGING, HALVING RELAXATION AND RESTARTING NEWTON ITERS',Level=1)
            NewRelax = SaveRelax*0.5_dp
            CALL ListAddConstReal( Solver % Values,  &
                 'Nonlinear System Relaxation Factor', NewRelax )
 
            WRITE( Message, * ) 'New Relaxation Factor : ', NewRelax
-           CALL Info(SolverName, Message, Level=1 )           
+           CALL Info(SolverName, Message, Level=1 )
 
            RelaxationAdapted = .TRUE.
            Newton = .TRUE.
            GOTO 300
         ELSE
 
-           CALL Info(Solvername,'SOL DIVERGING AGAIN, RESTARTING FROM VEL = 0',Level=1)           
+           CALL Info(Solvername,'SOL DIVERGING AGAIN, RESTARTING FROM VEL = 0',Level=1)
            VariableValues = 0.0_dp
            restarted = .TRUE.
 
@@ -1084,7 +1086,7 @@ SUBROUTINE MPM_SSA( Model,Solver,dt,TransientSimulation )
         IF (AdaptRelaxation .AND. (.NOT. VisitedAdaptRelax) ) THEN
 
            MP % GradVel(:,1:4) = Particles % GradVel(:,1:4)
-           MP % GridVelocity(:,1:2) = Particles % GridVelocity(:,1:2)     
+           MP % GridVelocity(:,1:2) = Particles % GridVelocity(:,1:2)
 
            !Vstore just used for storage
            VstoreVal(2*(VstorePerm(:)-1)+1) = VariableValues(STDOFs*(Permutation(:)-1)+1)
@@ -1124,17 +1126,17 @@ SUBROUTINE MPM_SSA( Model,Solver,dt,TransientSimulation )
      Particles % zsmaxdd = MAXVAL(Particles % damage(:,3,2)-Particles % damage(:,3,1))
 
      WRITE( Message, * ) 'Maximum zero stress damage increase  : ', Particles % zsmaxdd
-     CALL Info(SolverName, Message, Level=1 )     
+     CALL Info(SolverName, Message, Level=1 )
 
   END IF
 
   !----------------------------------------------------------------------------!
   !  SOLUTION CONVERGED: END LOOP NON-LINEAR ITERATIONS
-  !----------------------------------------------------------------------------!  
+  !----------------------------------------------------------------------------!
 
   CALL Info(Solvername,'MPM interpolation of converged grid velocity to particles...',Level=4)
   CALL MPMMeshVectorToParticle(Particles, Model, 3, count)
-  CALL Info(Solvername,'interpolation done',Level=4)  
+  CALL Info(Solvername,'interpolation done',Level=4)
 
   Particles % dd = 0.0_dp
   !Particles % xpic = 0.0_dp
@@ -1205,10 +1207,10 @@ SUBROUTINE MPM_SSA( Model,Solver,dt,TransientSimulation )
            diff = (depth(ii) - ds)/inc
            IF (ii == numlayers .AND. diff == 0.0_dp) EXIT
            IF (diff < 0.0_dp) THEN
-              Particles % damage(No,ii,1) = Particles % DmaxI 
+              Particles % damage(No,ii,1) = Particles % DmaxI
            ELSE
               IF (diff <= 0.5_dp) THEN
-                 Particles % damage(No,ii,1) = Particles % damage(No,ii,1) + 0.5_dp-diff                 
+                 Particles % damage(No,ii,1) = Particles % damage(No,ii,1) + 0.5_dp-diff
               ELSE
                  IF (ii+1 .NE. numlayers) THEN
                     Particles % damage(No,ii+1,1) = (Particles % damage(No,ii+1,1)-1.0_dp) + 1.5_dp-diff
@@ -1230,7 +1232,7 @@ SUBROUTINE MPM_SSA( Model,Solver,dt,TransientSimulation )
            strainrate(1,1) = Particles % Dav(No,1)
            strainrate(2,2) = Particles % Dav(No,2)
            strainrate(1,2) = Particles % Dav(No,4)
-           strainrate(2,1) = strainrate(1,2)           
+           strainrate(2,1) = strainrate(1,2)
            CALL Eigen2DSym_TryGenFirst(strainrate,EigVals,EigenVec)
 
            DO ii = 1,Particles % numberofparticlelayers
@@ -1241,12 +1243,12 @@ SUBROUTINE MPM_SSA( Model,Solver,dt,TransientSimulation )
 
               ww = EigVals(1)*EigenVec(1,1)
               xx = EigVals(2)*EigenVec(1,2)
-              yy = EigVals(1)*EigenVec(2,1) 
+              yy = EigVals(1)*EigenVec(2,1)
               zz = EigVals(2)*EigenVec(2,2)
 
               Particles % damage(No,ii,1) = EigenVec(1,1)*ww + EigenVec(1,2)*xx
               Particles % damage(No,ii,2) = EigenVec(2,1)*yy + EigenVec(2,2)*zz
-              Particles % damage(No,ii,3) = EigVals(1)                
+              Particles % damage(No,ii,3) = EigVals(1)
               Particles % damage(No,ii,4) = EigenVec(2,1)*ww + EigenVec(2,2)*xx
            END DO
         END IF
@@ -1263,18 +1265,64 @@ SUBROUTINE MPM_SSA( Model,Solver,dt,TransientSimulation )
   !------------------------------------------------------------------------------
 
   IF (count == 0 .AND. Particles % firsttimestepzero) THEN
-     !if dt is zero on the first timestep (useful for initialization), use PIC 
+     !if dt is zero on the first timestep (useful for initialization), use PIC
      CALL Info(Solvername,'PIC particle update on first timestep',Level=3)
 
      Particles % Velocity = Particles % GridVelocity
      Particles % NextCoordinate = Particles % GridVelocity
 
      IF (Particles % analytictest) THEN
-        Pval = rhoi * (rhow-rhoi)/rhow
-        Particles % Velocity(:,1) = ((Pval * Gravity * Particles % H(:)/ &
-             (4.0_dp * Particles % Binit(:)))**(3.0_dp)) * Particles % Coordinate(:,1)
+        ! Pval = rhoi * (rhow-rhoi)/rhow
+        ! Particles % Velocity(:,1) = ((Pval * Gravity * Particles % H(:)/ &
+        !      (4.0_dp * Particles % Binit(:)))**(3.0_dp)) * Particles % Coordinate(:,1)
+        ! Particles % Velocity(:,2) = 0.0_dp
+        ! Particles % GridVelocity = Particles % Velocity
+
+        !Analytical 1D solution on first timestep...
+
+        PRINT *,'ANALYTICAL 1D SOLUTION ON FIRST TIMESTEP'
+
+        a_H0 = GetConstReal( Model % Constants,'H0',GotIt )
+        IF (.NOT. GotIt) CALL Fatal('USF_1dtest:', &
+             'initH: Need to define "H0 = Real $" in constants')
+
+        a_v0 = GetConstReal( Model % Constants,'v0',GotIt )
+        IF (.NOT. GotIt) CALL Fatal('USF_1dtest:', &
+             'initH: Need to define "H0 = Real $" in constants')
+
+        a_cm = 1.0_dp/3.0_dp
+        a_secondsperyear = 31556926.0_dp
+        !a_H0 = 600.0_dp
+        !a_v0 = 300.0_dp
+        a_Q0 = a_H0*a_v0
+        a_B0 = 1.9E8_dp
+        a_A = ((a_B0*1.0E-6_dp)**(-3.0_dp))*a_secondsperyear !Mpa^(-3) a^(-1)
+        a_C = (((910.0_dp*1.0e-6_dp*9.81_dp)/&
+             (4.0_dp*(a_A**(-a_cm))))*(1.0_dp-910.0_dp/1028.0_dp))**3.0_dp
+        !C is the weertman constant !C =2.45E-18; !m?3 s?1
+
+        a_EeExp = (a_cm-1.0_dp)/2.0_dp
+        a_Acm = a_A**(-a_cm)
+        a_m1 = 4.0_dp*a_C/a_Q0
+        a_m2 = 1.0_dp/(a_H0*a_H0*a_H0*a_H0)
+
+        DO No = 1,Particles % NumberOfParticles
+           IF (Particles % Coordinate(No,1)<0.0_dp) THEN
+              Particles % H(No) = a_H0
+              Particles % Velocity(No,1)=a_v0
+              Particles % GradVel(No,1) = 0.0_dp
+           ELSE
+              Particles % H(No) = (a_m1*Particles % Coordinate(No,1) + a_m2)**(-0.25_dp)
+              Particles % Velocity(No,1) = a_Q0/Particles % H(No)
+              Particles % GradVel(No,1) = a_C * Particles % H(No)**(3.0_dp)
+           ENDIF
+        END DO
+
+        Particles % Gradvel(:,2) = 0.0_dp
         Particles % Velocity(:,2) = 0.0_dp
         Particles % GridVelocity = Particles % Velocity
+        Particles % NextCoordinate = Particles % Velocity
+
      END IF
   ELSE
      !if timestep > 1 and/or dt > 0
@@ -1443,7 +1491,7 @@ CONTAINS
          reweightmpm,fpgroundonly,visited,applyzerostress
     INTEGER :: i, j, t, p, q , dim, No,ind,mm,sf,count2
     TYPE(Nodes_t) :: Nodes
-    TYPE(GaussIntegrationPoints_t) :: IP    
+    TYPE(GaussIntegrationPoints_t) :: IP
 
     REAL(KIND=dp) :: bfscale(2)
     REAL(KIND=dp),POINTER :: h,Dxx,Dyy,Dzz,Dxy,&
@@ -1458,7 +1506,7 @@ CONTAINS
     REAL(KIND=dp) :: t1,t2,tp,tm
 #else
     REAL(KIND=dp) :: t1,t2,tp,tm
-#endif    
+#endif
 
 
     STIFF = 0.0_dp
@@ -1530,18 +1578,18 @@ CONTAINS
 
        h => Particles % H(No)
 
-       Dxx     => MP % Dxx(No) 
-       Dyy     => MP % Dyy(No) 
-       Dzz     => MP % Dzz(No) 
-       Dxy     => MP % Dxy(No)          
+       Dxx     => MP % Dxx(No)
+       Dyy     => MP % Dyy(No)
+       Dzz     => MP % Dzz(No)
+       Dxy     => MP % Dxy(No)
 
        DSRxx      =>  MP % DSRxx(No)
-       DSRyy      =>  MP % DSRyy(No) 
-       DSRxy      =>  MP % DSRxy(No)   
-       eta        =>  MP % eta(No) 
-       muder      =>  MP % muder(No) 
-       slip       =>  MP % slip(No)        
-       driveforce =>  MP % driveforce(No,1:2) 
+       DSRyy      =>  MP % DSRyy(No)
+       DSRxy      =>  MP % DSRxy(No)
+       eta        =>  MP % eta(No)
+       muder      =>  MP % muder(No)
+       slip       =>  MP % slip(No)
+       driveforce =>  MP % driveforce(No,1:2)
 
 
        IF (iFriction>1) THEN
@@ -1551,7 +1599,7 @@ CONTAINS
        END IF
 
        IF ((iFriction == 2).AND.(fm==1.0_dp)) iFriction=1
-       IF (iFriction==1) fNewtonLin = .FALSE.         
+       IF (iFriction==1) fNewtonLin = .FALSE.
 
        StrainA=0.0_dp
        StrainB=0.0_dp
@@ -1588,7 +1636,7 @@ CONTAINS
                      0.5_dp*dBasisdx2(q,1)*Dxy) * dBasisdx(p,2)
 
                 A(1,2) = (dBasisdx2(q,2)*(1.0_dp-Dzz) - 0.5_dp*dBasisdx2(q,1)*Dxy) * dBasisdx(p,1) + &
-                     (-0.5_dp*dBasisdx2(q,2)*Dxy + 0.25_dp*dBasisdx2(q,1)*(2.0_dp-Dxx-Dyy)) * dBasisdx(p,2)              
+                     (-0.5_dp*dBasisdx2(q,2)*Dxy + 0.25_dp*dBasisdx2(q,1)*(2.0_dp-Dxx-Dyy)) * dBasisdx(p,2)
 
                 A(2,1) = (dBasisdx2(q,1)*(1.0_dp-Dzz) - 0.5_dp*dBasisdx2(q,2)*Dxy)*dBasisdx(p,2) + &
                      (-0.5_dp*dBasisdx2(q,1)*Dxy + 0.25_dp*dBasisdx2(q,2)*(2.0_dp-Dxx-Dyy))*dBasisdx(p,1)
@@ -1606,8 +1654,8 @@ CONTAINS
                      Slip * Basis2(q) * Basis(p)  * detJ
 
                 DO j=1,STDOFs
-                   STIFF((STDOFs)*(p-1)+i,(STDOFs)*(q-1)+j) = STIFF((STDOFs)*(p-1)+i,(STDOFs)*(q-1)+j) +& 
-                        A(i,j) * detJ 
+                   STIFF((STDOFs)*(p-1)+i,(STDOFs)*(q-1)+j) = STIFF((STDOFs)*(p-1)+i,(STDOFs)*(q-1)+j) +&
+                        A(i,j) * detJ
                 END DO
              END DO
 
@@ -1626,7 +1674,7 @@ CONTAINS
                 IF (STDOFs.EQ.1) THEN
                    Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+1) = Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+1) +&
                         detJ * 2.0_dp * h * StrainA(1,1) *dBasisdx(p,1) * &
-                        muder * 2.0_dp * DSRxx * dBasisdx2(q,1) 
+                        muder * 2.0_dp * DSRxx * dBasisdx2(q,1)
                 ELSE IF (STDOFs.EQ.2) THEN
                    Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+1) = Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+1) +&
                         detJ * 2.0_dp * h * ((StrainA(1,1)+StrainA(1,2))*dBasisdx(p,1)+ &
@@ -1634,19 +1682,19 @@ CONTAINS
                         dBasisdx2(q,1)+DSRxy*dBasisdx2(q,2))
 
                    Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+2) = Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+2) +&
-                        detJ * 2.0_dp * h * ((StrainA(1,1)+StrainA(1,2))*dBasisdx(p,1)+ & 
+                        detJ * 2.0_dp * h * ((StrainA(1,1)+StrainA(1,2))*dBasisdx(p,1)+ &
                         (StrainB(1,1)+StrainB(1,2))*dBasisdx(p,2)) * muder *((2.0_dp*DSRyy+DSRxx)*&
                         dBasisdx2(q,2)+DSRxy*dBasisdx2(q,1))
 
                    Jac((STDOFs)*(p-1)+2,(STDOFs)*(q-1)+1) = Jac((STDOFs)*(p-1)+2,(STDOFs)*(q-1)+1) +&
-                        detJ * 2.0_dp * h * ((StrainA(2,1)+StrainA(2,2))*dBasisdx(p,2)+ & 
+                        detJ * 2.0_dp * h * ((StrainA(2,1)+StrainA(2,2))*dBasisdx(p,2)+ &
                         (StrainB(2,1)+StrainB(2,2))*dBasisdx(p,1)) * muder *((2.0_dp*DSRxx+DSRyy)*&
-                        dBasisdx2(q,1)+DSRxy*dBasisdx2(q,2)) 
+                        dBasisdx2(q,1)+DSRxy*dBasisdx2(q,2))
 
                    Jac((STDOFs)*(p-1)+2,(STDOFs)*(q-1)+2) = Jac((STDOFs)*(p-1)+2,(STDOFs)*(q-1)+2) +&
                         detJ * 2.0_dp * h * ((StrainA(2,1)+StrainA(2,2))*dBasisdx(p,2)+ &
                         (StrainB(2,1)+StrainB(2,2))*dBasisdx(p,1)) * muder *((2.0_dp*DSRyy+DSRxx)*&
-                        dBasisdx2(q,2)+DSRxy*dBasisdx2(q,1)) 
+                        dBasisdx2(q,2)+DSRxy*dBasisdx2(q,1))
                 END IF
              END IF
 
@@ -1654,7 +1702,7 @@ CONTAINS
 
           DO i=1,STDOFs
 
-             FORCE((STDOFs)*(p-1)+i) = FORCE((STDOFs)*(p-1)+i) - &   
+             FORCE((STDOFs)*(p-1)+i) = FORCE((STDOFs)*(p-1)+i) - &
                   driveforce(i) * detJ * Basis(p)
 
 
@@ -1662,13 +1710,13 @@ CONTAINS
 
           IF ((fNewtonLin).AND.(iFriction>1)) THEN
              DO i=1,STDOFs
-                FORCE((STDOFs)*(p-1)+i) =   FORCE((STDOFs)*(p-1)+i) + &   
-                     Slip2 * Velo(i) * ub * ub  * detJ * Basis(p) 
+                FORCE((STDOFs)*(p-1)+i) =   FORCE((STDOFs)*(p-1)+i) + &
+                     Slip2 * Velo(i) * ub * ub  * detJ * Basis(p)
              END DO
           END IF
        END DO
     END DO
-    
+
 
 
     IF (NewtonLin) THEN
@@ -1708,10 +1756,10 @@ CONTAINS
     TYPE(Element_t), POINTER :: Element
     LOGICAL :: Newton
     !------------------------------------------------------------------------------
-    REAL(KIND=dp) :: Basis(n), dBasisdx(n,3), ddBasisddx(n,3,3), detJ 
+    REAL(KIND=dp) :: Basis(n), dBasisdx(n,3), ddBasisddx(n,3,3), detJ
     REAL(KIND=dp) :: g, rho, eta, h, dhdx, dhdy , muder
     REAL(KIND=dp) :: beta, LinVelo, fC, fN, Velo(2), ub, alpha, fB
-    REAL(KIND=dp) :: gradS(2), A(2,2), StrainA(2,2), StrainB(2,2), Exx, Eyy, Exy, Ezz, Ee, MinSRInv ,MinH                           
+    REAL(KIND=dp) :: gradS(2), A(2,2), StrainA(2,2), StrainB(2,2), Exx, Eyy, Exy, Ezz, Ee, MinSRInv ,MinH
     REAL(KIND=dp) :: Jac(2*n,2*n), SOL(2*n), Slip, Slip2
     LOGICAL :: Stat, NewtonLin, fNewtonLIn
     INTEGER :: i, j, t, p, q , dim
@@ -1775,7 +1823,7 @@ CONTAINS
           IF (STDOFs == 2) Velo(2) = SUM(LocalV(1:n) * Basis(1:n))
           ub = SQRT(Velo(1)*Velo(1)+Velo(2)*Velo(2))
           Slip2=1.0_dp
-          IF (ub < LinVelo) then 
+          IF (ub < LinVelo) then
              ub = LinVelo
              Slip2=0.0_dp
           ENDIF
@@ -1791,7 +1839,7 @@ CONTAINS
           fC = FricMaxVal
 
           bedrock = SUM( NodalBed(1:n) * Basis(1:n) )
-          Hf= rhow * (sealevel-bedrock) / rho          
+          Hf= rhow * (sealevel-bedrock) / rho
 
           Hf = MAX(0.0_dp,Hf)
           fN = rho*g*(h-Hf)
@@ -1804,7 +1852,7 @@ CONTAINS
           Slip = beta
           fNewtonLin = .FALSE.
        ELSE IF (iFriction==2) THEN
-          Slip = beta * ub**(fm-1.0_dp) 
+          Slip = beta * ub**(fm-1.0_dp)
           Slip2 = Slip2*Slip*(fm-1.0_dp)/(ub*ub)
        ELSE IF (iFriction==3) THEN
           IF (PostPeak.NE.1.0_dp) THEN
@@ -1819,7 +1867,7 @@ CONTAINS
        END IF
 
        !------------------------------------------------------------------------------
-       ! In the non-linear case, effective viscosity       
+       ! In the non-linear case, effective viscosity
        IF (cm.NE.1.0_dp) THEN
           Exx = SUM(LocalU(1:n)*dBasisdx(1:n,1))
           Eyy = 0.0_dp
@@ -1864,7 +1912,7 @@ CONTAINS
        A = 0.0_dp
        DO p=1,n
           DO q=1,n
-             A(1,1) = 2.0_dp*dBasisdx(q,1)*dBasisdx(p,1)  
+             A(1,1) = 2.0_dp*dBasisdx(q,1)*dBasisdx(p,1)
              IF (STDOFs.EQ.2) THEN
                 A(1,1) = A(1,1) + 0.5_dp*dBasisdx(q,2)*dBasisdx(p,2)
 
@@ -1875,15 +1923,15 @@ CONTAINS
                      0.5_dp*dBasisdx(q,2)*dBasisdx(p,1)
 
                 A(2,2) = 2.0*dBasisdx(q,2)*dBasisdx(p,2) +&
-                     0.5_dp*dBasisdx(q,1)*dBasisdx(p,1)  
+                     0.5_dp*dBasisdx(q,1)*dBasisdx(p,1)
              END IF
              A = 2.0_dp * h * eta * A
              DO i=1,STDOFs
                 STIFF((STDOFs)*(p-1)+i,(STDOFs)*(q-1)+i) = STIFF((STDOFs)*(p-1)+i,(STDOFs)*(q-1)+i) +&
                      Slip * Basis(q) * Basis(p) * IP % S(t) * detJ
                 DO j=1,STDOFs
-                   STIFF((STDOFs)*(p-1)+i,(STDOFs)*(q-1)+j) = STIFF((STDOFs)*(p-1)+i,(STDOFs)*(q-1)+j) +& 
-                        A(i,j) * IP % S(t) * detJ 
+                   STIFF((STDOFs)*(p-1)+i,(STDOFs)*(q-1)+j) = STIFF((STDOFs)*(p-1)+i,(STDOFs)*(q-1)+j) +&
+                        A(i,j) * IP % S(t) * detJ
                 END DO
              END DO
 
@@ -1900,23 +1948,23 @@ CONTAINS
                 IF (STDOFs.EQ.1) THEN
                    Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+1) = Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+1) +&
                         IP % S(t) * detJ * 2.0_dp * h * StrainA(1,1)*dBasisdx(p,1) * &
-                        muder * 2.0_dp * Exx*dBasisdx(q,1) 
+                        muder * 2.0_dp * Exx*dBasisdx(q,1)
                 ELSE IF (STDOFs.EQ.2) THEN
                    Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+1) = Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+1) +&
                         IP % S(t) * detJ * 2.0_dp * h * ((StrainA(1,1)+StrainA(1,2))*dBasisdx(p,1)+ &
-                        (StrainB(1,1)+StrainB(1,2))*dBasisdx(p,2)) * muder *((2.0_dp*Exx+Eyy)*dBasisdx(q,1)+Exy*dBasisdx(q,2)) 
+                        (StrainB(1,1)+StrainB(1,2))*dBasisdx(p,2)) * muder *((2.0_dp*Exx+Eyy)*dBasisdx(q,1)+Exy*dBasisdx(q,2))
 
                    Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+2) = Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+2) +&
-                        IP % S(t) * detJ * 2.0_dp * h * ((StrainA(1,1)+StrainA(1,2))*dBasisdx(p,1)+ & 
-                        (StrainB(1,1)+StrainB(1,2))*dBasisdx(p,2)) * muder *((2.0_dp*Eyy+Exx)*dBasisdx(q,2)+Exy*dBasisdx(q,1)) 
+                        IP % S(t) * detJ * 2.0_dp * h * ((StrainA(1,1)+StrainA(1,2))*dBasisdx(p,1)+ &
+                        (StrainB(1,1)+StrainB(1,2))*dBasisdx(p,2)) * muder *((2.0_dp*Eyy+Exx)*dBasisdx(q,2)+Exy*dBasisdx(q,1))
 
                    Jac((STDOFs)*(p-1)+2,(STDOFs)*(q-1)+1) = Jac((STDOFs)*(p-1)+2,(STDOFs)*(q-1)+1) +&
-                        IP % S(t) * detJ * 2.0_dp * h * ((StrainA(2,1)+StrainA(2,2))*dBasisdx(p,2)+ & 
-                        (StrainB(2,1)+StrainB(2,2))*dBasisdx(p,1)) * muder *((2.0_dp*Exx+Eyy)*dBasisdx(q,1)+Exy*dBasisdx(q,2)) 
+                        IP % S(t) * detJ * 2.0_dp * h * ((StrainA(2,1)+StrainA(2,2))*dBasisdx(p,2)+ &
+                        (StrainB(2,1)+StrainB(2,2))*dBasisdx(p,1)) * muder *((2.0_dp*Exx+Eyy)*dBasisdx(q,1)+Exy*dBasisdx(q,2))
 
                    Jac((STDOFs)*(p-1)+2,(STDOFs)*(q-1)+2) = Jac((STDOFs)*(p-1)+2,(STDOFs)*(q-1)+2) +&
                         IP % S(t) * detJ * 2.0_dp * h * ((StrainA(2,1)+StrainA(2,2))*dBasisdx(p,2)+ &
-                        (StrainB(2,1)+StrainB(2,2))*dBasisdx(p,1)) * muder *((2.0_dp*Eyy+Exx)*dBasisdx(q,2)+Exy*dBasisdx(q,1)) 
+                        (StrainB(2,1)+StrainB(2,2))*dBasisdx(p,1)) * muder *((2.0_dp*Eyy+Exx)*dBasisdx(q,2)+Exy*dBasisdx(q,1))
                 END IF
              END IF
 
@@ -1930,7 +1978,7 @@ CONTAINS
 
           IF ((fNewtonLin).AND.(iFriction>1)) THEN
              DO i=1,STDOFs
-                FORCE((STDOFs)*(p-1)+i) =   FORCE((STDOFs)*(p-1)+i) + &   
+                FORCE((STDOFs)*(p-1)+i) =   FORCE((STDOFs)*(p-1)+i) + &
                      Slip2 * Velo(i) * ub * ub * IP % s(t) * detJ * Basis(p)
                 !was basis
              END DO
@@ -1966,7 +2014,7 @@ CONTAINS
          Viscosity(:), LocalZb(:), LocalZs(:), &
          LocalU(:), LocalV(:) , LocalBeta(:), &
          LocalLinVelo(:),LocalD(:,:)
-    REAL(KIND=dp) :: NodalGM(:),NodalBed(:) 
+    REAL(KIND=dp) :: NodalGM(:),NodalBed(:)
     LOGICAL :: SEP,PartlyGroundedElement
     REAL(KIND=dp) :: rhow,fricmaxval,minn
     REAL(KIND=dp) :: Bedrock,Hf
@@ -1975,10 +2023,10 @@ CONTAINS
     TYPE(Element_t), POINTER :: Element
     LOGICAL :: Newton
     !------------------------------------------------------------------------------
-    REAL(KIND=dp) :: Basis(n), dBasisdx(n,3), ddBasisddx(n,3,3), detJ 
+    REAL(KIND=dp) :: Basis(n), dBasisdx(n,3), ddBasisddx(n,3,3), detJ
     REAL(KIND=dp) :: g, rho, eta, h, dhdx, dhdy , muder
     REAL(KIND=dp) :: beta, LinVelo, fC, fN, Velo(2), ub, alpha, fB
-    REAL(KIND=dp) :: gradS(2), A(2,2), StrainA(2,2), StrainB(2,2), Exx, Eyy, Exy, Ezz, Ee, MinSRInv ,MinH                           
+    REAL(KIND=dp) :: gradS(2), A(2,2), StrainA(2,2), StrainB(2,2), Exx, Eyy, Exy, Ezz, Ee, MinSRInv ,MinH
     REAL(KIND=dp) :: Jac(2*n,2*n), SOL(2*n), Slip, Slip2
     REAL(KIND=dp) :: Dxx,Dyy,Dzz,Dxy,exxd1m1,eyyd2m1,ezzd3m1,exyd4,DSRxx,DSRyy,DSRxy
     LOGICAL :: Stat, NewtonLin, fNewtonLIn
@@ -1987,7 +2035,7 @@ CONTAINS
     TYPE(Nodes_t) :: Nodes
     INTEGER :: ind,No
     LOGICAL :: reweightmpm
-    REAL(KIND=dp) :: Area,scale,mpmweight  
+    REAL(KIND=dp) :: Area,scale,mpmweight
     !------------------------------------------------------------------------------
     dim = CoordinateSystemDimension()
 
@@ -2045,7 +2093,7 @@ CONTAINS
           IF (STDOFs == 2) Velo(2) = SUM(LocalV(1:n) * Basis(1:n))
           ub = SQRT(Velo(1)*Velo(1)+Velo(2)*Velo(2))
           Slip2=1.0_dp
-          IF (ub < LinVelo) then 
+          IF (ub < LinVelo) then
              ub = LinVelo
              Slip2=0.0_dp
           ENDIF
@@ -2061,7 +2109,7 @@ CONTAINS
           fC = FricMaxVal
 
           bedrock = SUM( NodalBed(1:n) * Basis(1:n) )
-          Hf= rhow * (sealevel-bedrock) / rho          
+          Hf= rhow * (sealevel-bedrock) / rho
 
           Hf = MAX(0.0_dp,Hf)
           fN = rho*g*(h-Hf)
@@ -2074,7 +2122,7 @@ CONTAINS
           Slip = beta
           fNewtonLin = .FALSE.
        ELSE IF (iFriction==2) THEN
-          Slip = beta * ub**(fm-1.0_dp) 
+          Slip = beta * ub**(fm-1.0_dp)
           Slip2 = Slip2*Slip*(fm-1.0_dp)/(ub*ub)
        ELSE IF (iFriction==3) THEN
           IF (PostPeak.NE.1.0_dp) THEN
@@ -2089,7 +2137,7 @@ CONTAINS
        END IF
 
        !------------------------------------------------------------------------------
-       ! In the non-linear case, effective viscosity       
+       ! In the non-linear case, effective viscosity
        IF (cm.NE.1.0_dp) THEN
           Exx = SUM(LocalU(1:n)*dBasisdx(1:n,1))
           Eyy = 0.0_dp
@@ -2170,7 +2218,7 @@ CONTAINS
                      (-0.5_dp*dBasisdx(q,1)*Dxy + 0.25_dp*dBasisdx(q,2)*(2.0_dp-Dxx-Dyy))*dBasisdx(p,1)
 
                 A(2,2) = (dBasisdx(q,2)*(2.0_dp-Dyy-Dzz)-0.5_dp*dBasisdx(q,1)*Dxy)*dBasisdx(p,2) + &
-                     (0.25_dp*dBasisdx(q,1)*(2.0_dp-Dxx-Dyy) - 0.5_dp*dBasisdx(q,2)*Dxy ) *dBasisdx(p,1)              
+                     (0.25_dp*dBasisdx(q,1)*(2.0_dp-Dxx-Dyy) - 0.5_dp*dBasisdx(q,2)*Dxy ) *dBasisdx(p,1)
              END IF
 
              A = 2.0_dp * h * eta * A
@@ -2180,8 +2228,8 @@ CONTAINS
                 STIFF((STDOFs)*(p-1)+i,(STDOFs)*(q-1)+i) = STIFF((STDOFs)*(p-1)+i,(STDOFs)*(q-1)+i) +&
                      Slip * Basis(q) * Basis(p) * IP % S(t) * detJ
                 DO j=1,STDOFs
-                   STIFF((STDOFs)*(p-1)+i,(STDOFs)*(q-1)+j) = STIFF((STDOFs)*(p-1)+i,(STDOFs)*(q-1)+j) +& 
-                        A(i,j) * IP % S(t) * detJ 
+                   STIFF((STDOFs)*(p-1)+i,(STDOFs)*(q-1)+j) = STIFF((STDOFs)*(p-1)+i,(STDOFs)*(q-1)+j) +&
+                        A(i,j) * IP % S(t) * detJ
                 END DO
              END DO
 
@@ -2198,7 +2246,7 @@ CONTAINS
                 IF (STDOFs.EQ.1) THEN
                    Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+1) = Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+1) +&
                         detJ * 2.0_dp * h * StrainA(1,1) *dBasisdx(p,1) * &
-                        muder * 2.0_dp * DSRxx * dBasisdx(q,1) 
+                        muder * 2.0_dp * DSRxx * dBasisdx(q,1)
                 ELSE IF (STDOFs.EQ.2) THEN
                    Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+1) = Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+1) +&
                         detJ * 2.0_dp * h * ((StrainA(1,1)+StrainA(1,2))*dBasisdx(p,1)+ &
@@ -2206,19 +2254,19 @@ CONTAINS
                         dBasisdx(q,1)+DSRxy*dBasisdx(q,2))
 
                    Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+2) = Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+2) +&
-                        detJ * 2.0_dp * h * ((StrainA(1,1)+StrainA(1,2))*dBasisdx(p,1)+ & 
+                        detJ * 2.0_dp * h * ((StrainA(1,1)+StrainA(1,2))*dBasisdx(p,1)+ &
                         (StrainB(1,1)+StrainB(1,2))*dBasisdx(p,2)) * muder *((2.0_dp*DSRyy+DSRxx)*&
                         dBasisdx(q,2)+DSRxy*dBasisdx(q,1))
 
                    Jac((STDOFs)*(p-1)+2,(STDOFs)*(q-1)+1) = Jac((STDOFs)*(p-1)+2,(STDOFs)*(q-1)+1) +&
-                        detJ * 2.0_dp * h * ((StrainA(2,1)+StrainA(2,2))*dBasisdx(p,2)+ & 
+                        detJ * 2.0_dp * h * ((StrainA(2,1)+StrainA(2,2))*dBasisdx(p,2)+ &
                         (StrainB(2,1)+StrainB(2,2))*dBasisdx(p,1)) * muder *((2.0_dp*DSRxx+DSRyy)*&
-                        dBasisdx(q,1)+DSRxy*dBasisdx(q,2)) 
+                        dBasisdx(q,1)+DSRxy*dBasisdx(q,2))
 
                    Jac((STDOFs)*(p-1)+2,(STDOFs)*(q-1)+2) = Jac((STDOFs)*(p-1)+2,(STDOFs)*(q-1)+2) +&
                         detJ * 2.0_dp * h * ((StrainA(2,1)+StrainA(2,2))*dBasisdx(p,2)+ &
                         (StrainB(2,1)+StrainB(2,2))*dBasisdx(p,1)) * muder *((2.0_dp*DSRyy+DSRxx)*&
-                        dBasisdx(q,2)+DSRxy*dBasisdx(q,1)) 
+                        dBasisdx(q,2)+DSRxy*dBasisdx(q,1))
                 END IF
              END IF
 
@@ -2232,7 +2280,7 @@ CONTAINS
 
           IF ((fNewtonLin).AND.(iFriction>1)) THEN
              DO i=1,STDOFs
-                FORCE((STDOFs)*(p-1)+i) =   FORCE((STDOFs)*(p-1)+i) + &   
+                FORCE((STDOFs)*(p-1)+i) =   FORCE((STDOFs)*(p-1)+i) + &
                      Slip2 * Velo(i) * ub * ub * IP % s(t) * detJ * Basis(p)
                 !was basis
              END DO
@@ -2259,7 +2307,7 @@ CONTAINS
 
   !> Here, matrix assembly for boundaries is the same for MPM as FEM
   SUBROUTINE LocalMatrixBCSSA(  STIFF, FORCE, Element, n, ENodes, rhoi, &
-       g, LocalZb, LocalZs, rhow, sealevel,MinH )        
+       g, LocalZb, LocalZs, rhow, sealevel,MinH )
     !------------------------------------------------------------------------------
     USE TYPES
     USE DefUtils
@@ -2291,18 +2339,18 @@ CONTAINS
           ! h_im = max(0.0_dp ,  h * (rhoi/rhow) )
 
 
-          h = LocalZs(i)-LocalZb(i) 
+          h = LocalZs(i)-LocalZb(i)
           h = max(h,MinH)
-          h_im = max(0.0_dp,sealevel-LocalZb(i))          
+          h_im = max(0.0_dp,sealevel-LocalZb(i))
 
           alpha=0.5_dp * g * (rhoi * h*h - rhow * h_im*h_im)
 
           FORCE(i) = FORCE(i) + alpha
        END DO
 
-       ! 2D-SSA Case : force distributed along the line       
+       ! 2D-SSA Case : force distributed along the line
        ! This will work in DIM=3D only if working with Extruded Mesh and Preserve
-       ! Baseline as been set to True to keep the 1D-BC 
+       ! Baseline as been set to True to keep the 1D-BC
     ELSE IF (STDOFs==2) THEN
 
        IP = GaussPoints( Element )
@@ -2319,7 +2367,7 @@ CONTAINS
           h = SUM( (LocalZs(1:n)-LocalZb(1:n)) * Basis(1:n))
           h_im = max(0.0_dp , SUM( (sealevel-LocalZb(1:n)) * Basis(1:n)) )
 
-          ! h_im = max(0.0_dp ,  h * (rhoi/rhow) )           
+          ! h_im = max(0.0_dp ,  h * (rhoi/rhow) )
 
           alpha=0.5_dp * g * (rhoi * h*h - rhow * h_im*h_im)
 
@@ -2334,12 +2382,12 @@ CONTAINS
           DO p=1,n
              DO i=1,STDOFs
 
-                FORCE(STDOFs*(p-1)+i) =   FORCE(STDOFs*(p-1)+i) +&   
+                FORCE(STDOFs*(p-1)+i) =   FORCE(STDOFs*(p-1)+i) +&
                      alpha * Normal(i) * IP % s(t) * detJ * Basis(p)
              END DO
           END DO
        END DO
-    ELSE   
+    ELSE
        CALL FATAL('SSASolver-SSABasalSolver','Do not work for STDOFs <> 1 or 2')
     END IF
 
@@ -2373,7 +2421,7 @@ CONTAINS
     REAL(KIND=dp) :: cm, fm, fq, TempParams(18), OrigParams(18),Normal(2),norm,d1prev
     TYPE(Element_t), POINTER :: Element
     TYPE(Variable_t), POINTER :: GridVel,GridH
-    REAL(KIND=dp) :: Zs,GradZs(3),Vel(3),GradVel(3,3),noforce 
+    REAL(KIND=dp) :: Zs,GradZs(3),Vel(3),GradVel(3,3),noforce
     LOGICAL :: Newton,reducedam,SEP
     TYPE(Model_t) :: Model
     REAL(KIND=dp) :: II(3,3),ID(3,3),DSR(3,3),Coord(3),LocalCoord(3),&
@@ -2443,7 +2491,7 @@ CONTAINS
     !MP % Dxx => Particles % dD(1:NoP,6,1)
     !MP % Dyy => Particles % dD(1:NoP,6,2)
     !MP % Dzz => Particles % dD(1:NoP,6,3)
-    !MP % Dxy => Particles % dD(1:NoP,6,4)       
+    !MP % Dxy => Particles % dD(1:NoP,6,4)
     Particles % dD(1:NoP,6,1:4) = Particles % Dav(1:NoP,1:4)
     !END IF
 
@@ -2469,7 +2517,7 @@ CONTAINS
        ELSE
           !use particle velocity from previous timestep for friction
           MP % Velo(1:NoP,1) = Particles % Velocity(1:NoP,1)
-          MP % Velo(1:NoP,2) = Particles % Velocity(1:NoP,2)  
+          MP % Velo(1:NoP,2) = Particles % Velocity(1:NoP,2)
        END IF
 
        MP % ub(1:NoP) = SQRT( MP % Velo(1:NoP,1) * MP % Velo(1:NoP,1) &
@@ -2493,7 +2541,7 @@ CONTAINS
     !------------------------------------------------------------------------------
     ! In the non-linear case, effective viscosity
 
-    !your binit is B = A**(-1/n). 
+    !your binit is B = A**(-1/n).
     MP % eta(1:NoP) = Particles % Binit(1:NoP) * (Particles % EF(1:NoP) * 2.0_dp)**(-1.0_dp * cm)
 
 
@@ -2518,7 +2566,7 @@ CONTAINS
     ! IF (Ee < MinSRInv*MinSRInv) THEN
     !    Ee = MinSRInv*MinSRInv
     !    muder = 0.0_dp
-    ! END IF     
+    ! END IF
     WHERE (MP % Ee < MinSRInv*MinSRInv)
        MP % muder = 0.0_dp
        MP % Ee = MinSRInv*MinSRInv
@@ -2555,9 +2603,9 @@ CONTAINS
 
 
           IF (ApplyZeroStress .AND. Particles % Damstatus(No) .NE. 1) THEN
-             IF (Particles % gamma == 0.0_dp) THEN 
+             IF (Particles % gamma == 0.0_dp) THEN
                 Tau(1,1) = 2.0_dp * Exx + Eyy
-                Tau(2,2) = 2.0_dp * Eyy + Exx             
+                Tau(2,2) = 2.0_dp * Eyy + Exx
                 Tau(1,2) = Exy
                 Tau(2,1) = Exy
 
@@ -2593,25 +2641,25 @@ CONTAINS
                 denom = one/( Dxy*Dxy + Dxx + Dyy -Dxx*Dyy - one)
                 t1d2m1 = Tau(1,1)*(Dyy-one)*denom
                 t2d1m1 = Tau(2,2)*(Dxx-one)*denom
-                t3od3m1 = two*eta*onethird * (exxd1m1+eyyd2m1-two*ezzd3m1+two*exyd4)/(Dzz-one)     
+                t3od3m1 = two*eta*onethird * (exxd1m1+eyyd2m1-two*ezzd3m1+two*exyd4)/(Dzz-one)
                 d4t4 = Tau(1,2)*Dxy*denom
 
-                Etau(1,1) = onethird*(two*t1d2m1 - t2d1m1 +t3od3m1 -d4t4) 
-                Etau(2,2) = onethird*(-t1d2m1 + two*t2d1m1 +t3od3m1 -d4t4) 
+                Etau(1,1) = onethird*(two*t1d2m1 - t2d1m1 +t3od3m1 -d4t4)
+                Etau(2,2) = onethird*(-t1d2m1 + two*t2d1m1 +t3od3m1 -d4t4)
                 !  Etau(3,3) = onethird*(-t1d2m1 - t2d1m1 - two*t3od3m1 + two*d4t4)
                 Etau(1,2) = half*denom*(Tau(1,2)*(Dxx+Dyy-two) - Dxy*(Tau(1,1)+Tau(2,2)))
-                Etau(2,1) = Etau(1,2)                
+                Etau(2,1) = Etau(1,2)
 
                 Tau(1,1) = 2.0_dp * ETau(1,1) + ETau(2,2)
-                Tau(2,2) = 2.0_dp * ETau(2,2) + ETau(1,1)             
+                Tau(2,2) = 2.0_dp * ETau(2,2) + ETau(1,1)
 
-                Tau(1,2) = Etau(1,2) 
-                Tau(2,1) = Tau(1,2)            
+                Tau(1,2) = Etau(1,2)
+                Tau(2,1) = Tau(1,2)
 
 
                 IF (count == 0) THEN
 
-                   IF (Particles % damage(No,3,3) == 0.0_dp) THEN 
+                   IF (Particles % damage(No,3,3) == 0.0_dp) THEN
                       CALL Eigen2DSym_TryGenFirst(Tau,EigValues,EigenVec)
 
                       Particles % damage(No,3,3) = 1.0_dp
@@ -2659,7 +2707,7 @@ CONTAINS
 
                    DDD = MATMUL(MATMUL(TRANSPOSE(EigenVec),DDD),EigenVec)
                    Tau = MATMUL(MATMUL(TRANSPOSE(EigenVec),Tau),EigenVec)
-                   ETau = MATMUL(MATMUL(TRANSPOSE(EigenVec),ETau),EigenVec)                      
+                   ETau = MATMUL(MATMUL(TRANSPOSE(EigenVec),ETau),EigenVec)
 
                    IF (DDD(1,1) > DDD(2,2)) THEN
                       EigValues(2) = Tau(1,1)
@@ -2707,9 +2755,9 @@ CONTAINS
                 ds = (h * tp)/(Q + (tp-tau2))
                 IF (ds .NE. ds) ds = (h * tp)/(Q + (tp-tau2) +eps1)
 
-                !only basal crevasses 
+                !only basal crevasses
                 db = rho*(H*tp - hab*Q)/(Q*(rhow-rho)+(tp-tau2)*rho)
-                IF (db .NE. db) db = rho*(H+tp - hab*Q)/(Q*(rhow-rho)+(tp-tau2)*rho + eps1)                
+                IF (db .NE. db) db = rho*(H+tp - hab*Q)/(Q*(rhow-rho)+(tp-tau2)*rho + eps1)
 
              ELSE
                 !both surface and basal crevasses
@@ -2729,7 +2777,7 @@ CONTAINS
                    IF (ds .NE. ds) ds = 0.0_dp
                 END IF
 
-                !only basal crevasses 
+                !only basal crevasses
                 db = rho*(H*tp - hab*Q)/(Q*(rhow-rho)+tp*rho)
                 IF (db .NE. db) THEN
                    db = rho*(H+tp - hab*Q)/(Q*(rhow-rho)+tp*rho + eps1)
@@ -2755,25 +2803,25 @@ CONTAINS
 
              IF (dtot .NE. dtot) dtot = 0.0_dp
 
-             dtot = MAX(0.0_dp,MIN(dtot,h*Particles % riftdmax))       
+             dtot = MAX(0.0_dp,MIN(dtot,h*Particles % riftdmax))
 
              !damage(No,3,1) is the max principal damage from the last step
              IF (dtot/h >= Particles % damage(No,3,1)) THEN
                 Particles % damage(No,3,2) = dtot/H
 
-                IF (Particles % gamma > 0.0_dp) THEN 
+                IF (Particles % gamma > 0.0_dp) THEN
                    EigValues(2) = dtot/H
                    EigValues(1) = 0.0_dp
 
                    ww = EigValues(1)*EigenVec(1,1)
                    xx = EigValues(2)*EigenVec(1,2)
-                   yy = EigValues(1)*EigenVec(2,1) 
+                   yy = EigValues(1)*EigenVec(2,1)
                    zz = EigValues(2)*EigenVec(2,2)
 
                    Particles % Dav(No,1) = EigenVec(1,1)*ww + EigenVec(1,2)*xx
                    Particles % Dav(No,2) = EigenVec(2,1)*yy + EigenVec(2,2)*zz
                    Particles % Dav(No,4) = EigenVec(2,1)*ww + EigenVec(2,2)*xx
-                   Particles % Dav(No,3) = 0.0_dp !dtot/H 
+                   Particles % Dav(No,3) = 0.0_dp !dtot/H
                 ELSE
                    Particles % Dav(No,1:3) = dtot/h
                    Particles % Dav(No,4) = 0.0_dp
@@ -2792,7 +2840,7 @@ CONTAINS
 
                 tp = tp*(1.0_dp-Particles % damage(No,3,2))/H
                 ds  = tp/(rhoi * g)
-                ds = MAX(ds,zero)                
+                ds = MAX(ds,zero)
                 db = (rhoi/(rhow-rhoi)) * ( ds -hab)
                 db = MAX(db,zero)
                 Particles % damage(No,1,1) = ds
@@ -2801,7 +2849,7 @@ CONTAINS
              END IF
           END IF
 
-          Particles % dD(No,6,1:4) = Particles % Dav(No,1:4)          
+          Particles % dD(No,6,1:4) = Particles % Dav(No,1:4)
        END IF
     END DO
     !end of loop
@@ -2813,7 +2861,7 @@ CONTAINS
     IF (iFriction > 1) THEN
 
        IF (iFriction ==2 ) THEN
-          MP % Slip = MP % Slip * MP % ub**(fm-1.0_dp) 
+          MP % Slip = MP % Slip * MP % ub**(fm-1.0_dp)
           MP % Slip2 = MP % Slip2 * MP % Slip * &
                (fm-1.0_dp)/(MP % ub * MP % ub)
 
@@ -2836,7 +2884,7 @@ CONTAINS
 
           MP % Slip = (MP % slip) * (MP % ub)**(fm-1.0_dp) / (1.0_dp + (MP % fB) * (MP % ub)**PostPeak)**fm
           MP % Slip2 = (MP % Slip2) * (MP % Slip) * ((fm-1.0_dp) / ((MP % ub) * (MP % ub)) - &
-               fm*PostPeak*(MP % fB)*(MP % ub)**(PostPeak-2.0_dp)/(1.0_dp+(MP % fB)*(MP % ub)**PostPeak))  
+               fm*PostPeak*(MP % fB)*(MP % ub)**(PostPeak-2.0_dp)/(1.0_dp+(MP % fB)*(MP % ub)**PostPeak))
        END IF
 
     END IF
@@ -2845,10 +2893,10 @@ CONTAINS
 
     IF (NewtonLin) THEN
 
-       !slow way 
+       !slow way
        ! ID = 0.0_dp
        ! ID(1,1) = Particles % Dav(No,1) !Dxx
-       ! ID(2,1) = Particles % Dav(No,4); ID(1,2) = Particles % Dav(No,4) !Dxy           
+       ! ID(2,1) = Particles % Dav(No,4); ID(1,2) = Particles % Dav(No,4) !Dxy
        ! ID(2,2) = Particles % Dav(No,2) !Dyy
        ! ID(3,3) = Particles % Dav(No,3) !Dzz
        ! ID = II - ID
@@ -2856,7 +2904,7 @@ CONTAINS
        ! !DSR = deviatoric damage eff strain rate tensor
        ! DSR = 0.0_dp
        ! DSR(1,1) = Exx; DSR(2,2) = Eyy; DSR(3,3) = Ezz
-       ! DSR(2,1) = Exy; DSR(1,2) = Exy          
+       ! DSR(2,1) = Exy; DSR(1,2) = Exy
        ! DSR = (MATMUL(ID,DSR) + MATMUL(DSR,ID))
        ! DSR = 0.5_dp*(DSR - (II * ( ( DSR(1,1)+DSR(2,2)+DSR(3,3) )/3.0_dp) ) )
 
@@ -2880,8 +2928,8 @@ CONTAINS
     END IF
 
     !driveforce
-    MP % driveforce(1:NoP,1) = rho*g*Particles % H(1:NoP)*Particles % GradZs(1:NoP,1)  
-    MP % driveforce(1:NoP,2) = rho*g*Particles % H(1:NoP)*Particles % GradZs(1:NoP,2) 
+    MP % driveforce(1:NoP,1) = rho*g*Particles % H(1:NoP)*Particles % GradZs(1:NoP,1)
+    MP % driveforce(1:NoP,2) = rho*g*Particles % H(1:NoP)*Particles % GradZs(1:NoP,2)
 
   END SUBROUTINE UpdateSSAParticleVals
 

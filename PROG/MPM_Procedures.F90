@@ -15,7 +15,15 @@ SUBROUTINE MPM_Initialize( Model,Solver,dt,TransientSimulation )
   TYPE(Mesh_t), POINTER :: Mesh
   INTEGER :: dim
   TYPE(Particle_t), POINTER :: Particles
-  CHARACTER(LEN=MAX_NAME_LEN) :: SolverName  
+  CHARACTER(LEN=MAX_NAME_LEN) :: SolverName
+  REAL(KIND=dp) :: Basis(4), dBasisdx(4,3), ddBasisddx(4,3,3), detJ
+  TYPE(Element_t), POINTER :: Element
+  INTEGER :: nn,j,t,np,ind,No
+  LOGICAL :: GotIt,uplag=.FALSE.
+  LOGICAL :: stat
+  TYPE(GaussIntegrationPoints_t) :: IP
+  TYPE(Nodes_t) :: Nodes
+  INTEGER, POINTER :: NodeIndexes(:)
 
 #ifdef USE_ISO_C_BINDINGS
   REAL(KIND=dp) :: starttime
@@ -23,7 +31,7 @@ SUBROUTINE MPM_Initialize( Model,Solver,dt,TransientSimulation )
   REAL(KIND=dp) :: starttime
 #endif
 
-  WRITE(SolverName, '(A)') 'MPM_Initialize'  
+  WRITE(SolverName, '(A)') 'MPM_Initialize'
 
   Particles => GlobalParticles
   dim = CoordinateSystemDimension()
@@ -53,6 +61,52 @@ SUBROUTINE MPM_Initialize( Model,Solver,dt,TransientSimulation )
      CALL GetElemParticles_sMPM(Particles, Model )
   END IF
 
+   UpLag = ListGetLogical(Solver % Values,'UpLag',GotIt)
+   IF (UpLag) THEN
+      PRINT *,'INITIAL UPLAG LAG PARTICLE UPDATES'
+      Mesh => GetMesh()
+      Particles % uplag = .TRUE.
+
+     Element => Solver % Mesh % Elements(1)
+     nn = Element % TYPE % NumberOfNodes
+     ALLOCATE( Nodes % x(nn), Nodes % y(nn), Nodes % z(nn))
+
+     Do t=1,Solver % Mesh % NumberOfBulkElements
+
+        Element => Solver % Mesh % Elements(t)
+        IF ( Element % TYPE % NumberOfNodes .NE. nn) CYCLE
+        ind = Element % ElementIndex
+        NodeIndexes => Element % NodeIndexes
+        Nodes % x(1:nn) = Solver % Mesh % Nodes % x(NodeIndexes)
+        Nodes % y(1:nn) = Solver % Mesh % Nodes % y(NodeIndexes)
+        Nodes % z(1:nn) = 0.0_dp
+
+        IP = GaussPoints( Element , np=INT(Particles % elementfraction) )
+
+        DO j=1,IP % n
+           stat = ElementInfo( Element, Nodes, IP % U(j), IP % V(j), &
+                IP % W(j),  detJ, Basis, dBasisdx, ddBasisddx, .FALSE. )
+
+           No = ElemParticles(ind) % p(j)
+
+           Particles % Coordinate(No,1) = SUM( Basis(1:nn) * Nodes % x(1:nn) ) !IP % U(j)
+           Particles % Coordinate(No,2) = SUM( Basis(1:nn) * Nodes % y(1:nn) ) !IP % V(j)
+           Particles % PVolume(No) = IP % S(j) * detJ
+           Particles % GVolume(No) = IP % S(j) * detJ
+
+           ! IF (Particles % PVolume(No) .ne. (Particles % Length(No,1) * Particles % Length(No,2))) THEN
+           !    print *,'Particles % PVolume(No)',Particles % PVolume(No)
+           !    print *,'length width',Particles % Length(No,1), Particles % Length(No,2)
+           !    print *,'larea',Particles % Length(No,1) * Particles % Length(No,2)
+           !    CALL Fatal(SolverName,'Uplag Volume Error!')
+           ! ENDIF
+        END DO
+     END DO
+
+     DEALLOCATE( Nodes % x, Nodes % y, Nodes % z)
+
+  END IF
+
   IF (Particles % shapefunctions == 'smpm' .AND. Particles % hoop) THEN
      CALL Info(SolverName,'sMPM hoop: skipping initparticlevars',Level=1)
   ELSE
@@ -69,17 +123,17 @@ END SUBROUTINE MPM_Initialize
 !> Update material point def grad, gimpm shape, area, position, splitting, etc
 SUBROUTINE ParticleUpdates( Model, Solver, dt, TransientSimulation)
 
-  USE MPMUtils 
+  USE MPMUtils
   USE DefUtils
   USE Lists
 
   IMPLICIT NONE
-  TYPE(Particle_t), POINTER :: Particles  
+  TYPE(Particle_t), POINTER :: Particles
   TYPE(ValueList_t), POINTER :: Params
   TYPE(Solver_t), TARGET :: Solver
   TYPE(Model_t) :: Model
   TYPE(Nodes_t) :: ElementNodes
-  TYPE(Mesh_t), POINTER :: Mesh  
+  TYPE(Mesh_t), POINTER :: Mesh
   REAL(KIND=dp) :: dt,rhoi, davsplitthres
   LOGICAL :: TransientSimulation
 
@@ -94,18 +148,18 @@ SUBROUTINE ParticleUpdates( Model, Solver, dt, TransientSimulation)
   INTEGER :: maxcplength,maxstretchlength,maxstrain
   TYPE(Element_t), POINTER :: BulkElement
 
-  TYPE(Variable_t), POINTER :: mask  
+  TYPE(Variable_t), POINTER :: mask
   INTEGER, POINTER :: maskPerm(:)
   REAL(KIND=dp), POINTER :: maskVal(:)
 
   !For use corner update
   TYPE(Element_t),Pointer :: Element
-  INTEGER, POINTER :: NodeIndexes(:)  
+  INTEGER, POINTER :: NodeIndexes(:)
   INTEGER :: ind,nn,selem(4)
   REAL(KIND=dp) :: xmin,xmax,ymin,ymax,newy,newx,Coord(3),midpcoords(4,3),SqrtElementMetric,&
        midpvel(2),tl1,tl2,sterm,Basis(4),dBasisdx(4,3),midpcoords2(4,2)
   Logical :: stat,UseCorners
-  TYPE(Variable_t), POINTER :: GridVel=>NULL()  
+  TYPE(Variable_t), POINTER :: GridVel=>NULL()
 
 
   SAVE :: gridres,maxlength,maxDPlength,numoflayers,&
@@ -120,10 +174,10 @@ SUBROUTINE ParticleUpdates( Model, Solver, dt, TransientSimulation)
 
      nn = Model % Mesh % MaxElementNodes
 
-     ALLOCATE(ElementNodes % x(nn),ElementNodes % y(nn),ElementNodes % z(nn))  
+     ALLOCATE(ElementNodes % x(nn),ElementNodes % y(nn),ElementNodes % z(nn))
      mask => VariableGet(Model % Mesh % Variables, 'Mask' )
      maskPerm => mask % Perm
-     maskVal => mask % Values     
+     maskVal => mask % Values
 
      gridres = Particles % gridres
      maxlength = Particles % maxlength
@@ -138,7 +192,7 @@ SUBROUTINE ParticleUpdates( Model, Solver, dt, TransientSimulation)
         IF (.NOT. GotIt) UseCorners = .TRUE.
 
         IF (UseCorners) THEN
-           CALL Info( SolverName, 'USING GIMPM CORNER UPDATE', Level=1 )           
+           CALL Info( SolverName, 'USING GIMPM CORNER UPDATE', Level=1 )
         END IF
 
      END IF
@@ -160,13 +214,13 @@ SUBROUTINE ParticleUpdates( Model, Solver, dt, TransientSimulation)
      END IF
   END IF
 
-  CALL Info(SolverName,'Updating F, Vol, Lengths, Splitting, and Coords',Level=3)  
+  CALL Info(SolverName,'Updating F, Vol, Lengths, Splitting, and Coords',Level=3)
 
   VisitedTimes = VisitedTimes + 1
 
-  SplitP = .FALSE. 
+  SplitP = .FALSE.
 
-  maxcalclength = 0.0_dp 
+  maxcalclength = 0.0_dp
   mincalclength = maxlength
 
   dt = Particles % dtime
@@ -207,9 +261,9 @@ SUBROUTINE ParticleUpdates( Model, Solver, dt, TransientSimulation)
      F(1,2) = Particles % F(No,3)
      F(2,1) = Particles % F(No,4)
      G = 0.0_dp
-     G(1,1) = 1.0_dp + dt * Particles % GradVel(No,1) 
-     G(2,2) = 1.0_dp + dt * Particles % GradVel(No,2) 
-     G(1,2) = dt * Particles % GradVel(No,3) 
+     G(1,1) = 1.0_dp + dt * Particles % GradVel(No,1)
+     G(2,2) = 1.0_dp + dt * Particles % GradVel(No,2)
+     G(1,2) = dt * Particles % GradVel(No,3)
      G(2,1) = dt * Particles % GradVel(No,4)
 
      !F = MATMUL(G,F)
@@ -257,7 +311,7 @@ SUBROUTINE ParticleUpdates( Model, Solver, dt, TransientSimulation)
            ! "CORNERS" LENGTH UPDATE (here, using midpoints shortcut)
            !
 
-           Element => Mesh % Elements(ind)           
+           Element => Mesh % Elements(ind)
            nn = Element % TYPE % NumberOfNodes
            NodeIndexes => Element % NodeIndexes
            xmin = MINVAL(Mesh % Nodes % x(NodeIndexes(1:nn)))
@@ -324,7 +378,7 @@ SUBROUTINE ParticleUpdates( Model, Solver, dt, TransientSimulation)
            tl1 = MAXVAL(midpcoords(:,1))-MINVAL(midpcoords(:,1))
            tl2 = MAXVAL(midpcoords(:,2))-MINVAL(midpcoords(:,2))
 
-           detF = F(1,1)*F(2,2) - F(1,2)*F(2,1)           
+           detF = F(1,1)*F(2,2) - F(1,2)*F(2,1)
            sterm = sqrt( (detF * Particles % OrigLength(No,1)*Particles % OrigLength(No,2))/&
                 (tl1*tl2) )
 
@@ -335,12 +389,12 @@ SUBROUTINE ParticleUpdates( Model, Solver, dt, TransientSimulation)
 
               !for debug, mostly. Something is probably wrong if this occurs
               WRITE( Message, * ) 'ERROR: fixing misshapen particle no...', no
-              CALL Warn( SolverName, Message )                 
+              CALL Warn( SolverName, Message )
 
               tl1 = MAX(tl1,1.0_dp)
               tl2 = MAX(tl2,1.0_dp)
               sterm = sqrt( (detF * Particles % OrigLength(No,1)*Particles % OrigLength(No,2))/&
-                   (tl1*tl2) )              
+                   (tl1*tl2) )
            END IF
 
            !END "CORNERS" LENGTH UPDATE
@@ -359,18 +413,18 @@ SUBROUTINE ParticleUpdates( Model, Solver, dt, TransientSimulation)
 
            !U is eigenvalues, Q is eigenvectors (columns)
            !ascending order (returns smallest eigvalues first)
-           U = 0.0_dp           
-           CALL Eigen2D(G,U,Q)         
+           U = 0.0_dp
+           CALL Eigen2D(G,U,Q)
            U=SQRT(U)
 
 
            ! Update lengths
            ! Slow version:
            ! The final form of G is the stretch tensor
-           ! G = 0.0_dp; G(1,1) = U(1); G(2,2) = U(2)           
+           ! G = 0.0_dp; G(1,1) = U(1); G(2,2) = U(2)
            ! G = MATMUL(Q,G); G = MATMUL(G,TRANSPOSE(Q))
            ! Particles % Length(No,1) = Particles % OrigLength(No,1) * G(1,1)
-           ! Particles % Length(No,2) = Particles % OrigLength(No,2) * G(2,2)           
+           ! Particles % Length(No,2) = Particles % OrigLength(No,2) * G(2,2)
 
            ! Fast version:
            Particles % Length(No,1) = Particles % OrigLength(No,1) * &
@@ -397,7 +451,7 @@ SUBROUTINE ParticleUpdates( Model, Solver, dt, TransientSimulation)
 
         Particles % pvolume(No) = Particles % Length(No,1) * Particles % Length(No,2)
 
-        IF ( ANY(Particles % Length(No,:) > mlength) ) SplitP = .TRUE.        
+        IF ( ANY(Particles % Length(No,:) > mlength) ) SplitP = .TRUE.
 
         !end sMPM or GIMPM
      END IF
@@ -415,15 +469,15 @@ SUBROUTINE ParticleUpdates( Model, Solver, dt, TransientSimulation)
   WRITE( Message, * ) 'Maximum length of particles', maxcalclength
   CALL Info( SolverName, Message, Level=1 )
   WRITE( Message, * ) 'Minimum length of particles', mincalclength
-  CALL Info( SolverName, Message, Level=1 )       
+  CALL Info( SolverName, Message, Level=1 )
 
-  CALL Info(SolverName,'Checking for particle splitting',Level=4)  
+  CALL Info(SolverName,'Checking for particle splitting',Level=4)
   IF ( SplitP ) THEN
      CALL ParticleSplitting( Particles, Model, numoflayers )
-     CALL Info(SolverName,'Particle Splitting Done',Level=4)  
+     CALL Info(SolverName,'Particle Splitting Done',Level=4)
   END IF
 
-  Particles % mass(:) = Particles % pvolume(:) * Particles % H(:) * Particles % rhoi   
+  Particles % mass(:) = Particles % pvolume(:) * Particles % H(:) * Particles % rhoi
 
   !Assign particles to elements
   IF (Particles % ShapeFunctions == 'gimpm') THEN
@@ -454,7 +508,7 @@ SUBROUTINE UpdateLagParticleUpdates( Model, Solver, dt, TransientSimulation)
   USE MPMUtils
 
   IMPLICIT NONE
-  TYPE(Particle_t), POINTER :: Particles  
+  TYPE(Particle_t), POINTER :: Particles
   TYPE(Solver_t), TARGET :: Solver
   TYPE(Model_t) :: Model
   REAL(KIND=dp) :: dt
@@ -462,7 +516,7 @@ SUBROUTINE UpdateLagParticleUpdates( Model, Solver, dt, TransientSimulation)
   TYPE(Mesh_t), POINTER :: Mesh
   INTEGER :: No,nn,j,t,np,ind
   TYPE(Element_t), POINTER :: Element
-  REAL(KIND=dp) :: Basis(4), dBasisdx(4,3), ddBasisddx(4,3,3), detJ 
+  REAL(KIND=dp) :: Basis(4), dBasisdx(4,3), ddBasisddx(4,3,3), detJ
   TYPE(GaussIntegrationPoints_t) :: IP
   TYPE(Nodes_t) :: Nodes
   INTEGER, POINTER :: NodeIndexes(:)
@@ -476,11 +530,11 @@ SUBROUTINE UpdateLagParticleUpdates( Model, Solver, dt, TransientSimulation)
   Do t=1,Solver % Mesh % NumberOfBulkElements
      Element => Solver % Mesh % Elements(t)
      ind = Element % ElementIndex
-     IF ( Element % TYPE % NumberOfNodes .NE. 4) CYCLE     
+     IF ( Element % TYPE % NumberOfNodes .NE. 4) CYCLE
      NodeIndexes => Element % NodeIndexes
      Nodes % x(1:4) = Solver % Mesh % Nodes % x(NodeIndexes)
      Nodes % y(1:4) = Solver % Mesh % Nodes % y(NodeIndexes)
-     Nodes % z(1:4) = 0.0_dp       
+     Nodes % z(1:4) = 0.0_dp
 
      IP = GaussPoints( Element , np=INT(Particles % elementfraction) )
 
@@ -491,14 +545,14 @@ SUBROUTINE UpdateLagParticleUpdates( Model, Solver, dt, TransientSimulation)
         No = ElemParticles(ind) % p(j)
 
         Particles % Coordinate(No,1) = SUM( Basis(1:4) * Nodes % x(1:4) ) !IP % U(j)
-        Particles % Coordinate(No,2) = SUM( Basis(1:4) * Nodes % y(1:4) ) !IP % V(j)        
+        Particles % Coordinate(No,2) = SUM( Basis(1:4) * Nodes % y(1:4) ) !IP % V(j)
         Particles % PVolume(No) = IP % S(j) * detJ
         Particles % GVolume(No) = IP % S(j) * detJ
 
      END DO
   END DO
 
-  DEALLOCATE( Nodes % x, Nodes % y, Nodes % z)  
+  DEALLOCATE( Nodes % x, Nodes % y, Nodes % z)
 
 END SUBROUTINE UpdateLagParticleUpdates
 
@@ -513,8 +567,8 @@ SUBROUTINE UpdateLagMeshUpdates( Model, Solver, dt, TransientSimulation)
   IMPLICIT NONE
 
   TYPE(Solver_t), TARGET :: Solver
-  TYPE(Element_t), POINTER :: Element  
-  TYPE(Model_t) :: Model  
+  TYPE(Element_t), POINTER :: Element
+  TYPE(Model_t) :: Model
   REAL(KIND=dp) :: dt,x,y,dist
   LOGICAL :: TransientSimulation,UnFoundFatal=.TRUE.
   TYPE(Mesh_t), POINTER :: Mesh
@@ -527,7 +581,7 @@ SUBROUTINE UpdateLagMeshUpdates( Model, Solver, dt, TransientSimulation)
 
   WRITE(SolverName, '(A)') 'Updated Lagrangian Mesh Deformation'
 
-  Mesh => GetMesh()       
+  Mesh => GetMesh()
 
   dim = CoordinateSystemDimension()
 
@@ -543,7 +597,7 @@ SUBROUTINE UpdateLagMeshUpdates( Model, Solver, dt, TransientSimulation)
      Element => Solver % Mesh % Elements(t)
      Model % CurrentElement => Solver % Mesh % Elements(t)
      nn = GetElementNOFNodes(Element)
-     NodeIndexes => Element % NodeIndexes        
+     NodeIndexes => Element % NodeIndexes
 
      DO jj = 1,nn
         ii = NodeIndexes(jj)
@@ -582,33 +636,55 @@ SUBROUTINE UpdateParticleHandMass( Model, Solver, dt, TransientSimulation)
   USE DefUtils
 
   IMPLICIT NONE
-  TYPE(Particle_t), POINTER :: Particles  
+  TYPE(Particle_t), POINTER :: Particles
   TYPE(Solver_t), TARGET :: Solver
-  TYPE(ValueList_t), POINTER :: Params  
+  TYPE(ValueList_t), POINTER :: Params
   TYPE(Model_t) :: Model
-  LOGICAL :: TransientSimulation  
-  TYPE(Mesh_t), POINTER :: Mesh  
-  REAL(KIND=dp) :: dt,divu,lc
-  INTEGER :: No, ii,smoothiters
-  LOGICAL :: Visited=.FALSE.,GotIt,nohupdate,smoothdam
+  LOGICAL :: TransientSimulation
+  TYPE(Mesh_t), POINTER :: Mesh
+  TYPE(Element_t),POINTER :: Element
+  TYPE(Nodes_t) :: Nodes
+  TYPE(Variable_t), POINTER :: GridH
+  REAL(KIND=dp) :: Basis(4), dBasisdx(4,3), dirichletmax
+  REAL(KIND=dp) :: dt,divu,lc,Hinterp,GradH(3),tempx, coord(3)
+  INTEGER :: No, ii,smoothiters,elementind
+  LOGICAL :: Visited=.FALSE.,GotIt,nohupdate,smoothdam,stat
   CHARACTER(LEN=MAX_NAME_LEN) :: SolverName
 
-  SAVE :: Visited, nohupdate,lc,smoothdam,smoothiters
+  LOGICAL :: fixh
+  REAL(KIND=dp) :: cm,secondsperyear,H0,v0,Q0,B0,A,C,EeExp,Acm,m1,m2
+
+  SAVE :: Visited, nohupdate,lc,smoothdam,smoothiters, fixh, GridH, dirichletmax
 
   Particles => GlobalParticles
   Mesh => GetMesh()
   WRITE(SolverName, '(A)') 'Update_Particle_H_and_Mass'
 
-  CALL Info(SolverName,'Updating Particle H and Mass',Level=3) 
+  CALL Info(SolverName,'Updating Particle H and Mass',Level=3)
 
   Params => GetSolverParams()
 
   IF( .NOT. Visited ) THEN
 
+     fixh = ListGetLogical(Solver % Values,'Fix H',GotIt)
+     IF (.NOT. GotIt) fixh = .FALSE.
+
+     dirichletmax = GetConstReal(Solver % Values,'dirichlet max x',GotIt)
+     IF (.not. GotIt) THEN
+        dirichletmax=5000.0_dp
+     ENDIF
+
+
+     IF (fixh) THEN
+        GridH => VariableGet( Mesh % Variables, 'Hinit' )
+        !GridH => VariableGet( Mesh % Variables, 'SSAVelocity 1' )
+     ENDIF
+
+
      smoothdam =  GetLogical( Params, 'Smooth Full Dam Particles H', GotIt)
      IF (.NOT. GotIt) THEN
         smoothdam = .FALSE.
-        CALL Info(SolverName,'Use smooth full dam particles not specified -- assuming false',Level=4)         
+        CALL Info(SolverName,'Use smooth full dam particles not specified -- assuming false',Level=4)
      END IF
 
      IF (smoothdam) THEN
@@ -618,7 +694,7 @@ SUBROUTINE UpdateParticleHandMass( Model, Solver, dt, TransientSimulation)
 
         smoothiters = GetInteger( Params,'smoothing iters',GotIt)
         IF (.NOT. GotIt) CALL Fatal(SolverName,&
-             'Need to define "smooth iters = Integer"')        
+             'Need to define "smooth iters = Integer"')
      END IF
 
      nohupdate = ListGetLogical(Params,'no h update',GotIt)
@@ -631,28 +707,96 @@ SUBROUTINE UpdateParticleHandMass( Model, Solver, dt, TransientSimulation)
      IF (Particles % firsttimestepzero) RETURN
   END IF
 
-  dt = Particles % dtime 
+  dt = Particles % dtime
+
+  IF (fixh) THEN
+     cm = 1.0_dp/3.0_dp
+     secondsperyear = 31556926.0_dp
+
+     H0 = GetConstReal( Model % Constants,'H0',GotIt )
+     IF (.NOT. GotIt) CALL Fatal('USF_1dtest:', &
+          'initH: Need to define "H0 = Real $" in constants')
+
+     v0 = GetConstReal( Model % Constants,'v0',GotIt )
+     IF (.NOT. GotIt) CALL Fatal('USF_1dtest:', &
+          'initH: Need to define "H0 = Real $" in constants')
+
+     !H0 = 600.0_dp
+     !v0 = 300.0_dp
+     Q0 = H0*v0
+     B0 = 1.9E8_dp
+     A = ((B0*1.0E-6_dp)**(-3.0_dp))*secondsperyear !Mpa^(-3) a^(-1)
+     C = (((910.0_dp*1.0e-6_dp*9.81_dp)/&
+          (4.0_dp*(A**(-cm))))*(1.0_dp-910.0_dp/1028.0_dp))**3.0_dp
+     !C is the weertman constant !C =2.45E-18; !m?3 s?1
+
+     EeExp = (cm-1.0_dp)/2.0_dp
+     Acm = A**(-cm)
+     m1 = 4.0_dp*C/Q0
+     m2 = 1.0_dp/(H0*H0*H0*H0)
+  ENDIF
 
   IF( .NOT. nohupdate) THEN
 
      !regular update, no additional basal melt
      DO No = 1,Particles % NumberOfParticles
-
         divu = Particles % GradVel(No,1) + Particles % GradVel(No,2)
-
         Particles % H(No) = Particles % H(No) * (-1.0_dp) * &
              divu * dt  + Particles % H(No) + Particles % MB(No) * dt
 
         IF (Particles % H(No) < 1.0_dp) Particles % H(No) = 1.0_dp
+
+        IF (fixh) THEN
+
+           ! IF (Particles % ShapeFunctions == 'gimpm' .AND. &
+           !      Particles % Coordinate(No,1)<0.0_dp .AND. &
+           !      (Particles % Coordinate(No,1)+Particles % Length(No,1))>0.0_dp) THEN
+           !    tempx = Particles % Coordinate(No,1)
+           !    Particles % Coordinate(No,1) = &
+           !         0.5_dp*(Particles % Coordinate(No,1)+Particles % Length(No,1))
+           !    Coord = GetParticleCoord(Particles,No)
+           !    ElementInd=Particles % ElementIndex(No)
+           !    CALL LocateParticleInMeshOctree( ElementInd, Coord(1:3))
+           !    IF (ElementInd>0) THEN
+           !       Element => Mesh % Elements(ElementInd)
+           !       CALL GetElementNodes(Nodes,Element)
+           !       stat = sMPMElementInfo( Element, Particles, Model, Nodes, No, &
+           !            Particles % gridres, Basis,dBasisdx)
+           !       !CALL GetScalarFieldInMesh(GridH, Element, Basis, Hinterp)
+           !       !Particles % H(No) = Hinterp
+           !       CALL GetScalarFieldInMesh(GridH, Element, Basis, Hinterp, dBasisdx, GradH)
+           !       divu = GradH(1)
+           !    ELSE
+           !       divu=0.0_dp
+           !    ENDIF
+           !    Particles % Coordinate(No,1)=tempx
+
+           ! ELSE
+           IF (Particles % Coordinate(No,1)<=0.0_dp) THEN
+              Particles % H(No) = H0
+           ELSE
+              IF (Particles % Coordinate(No,1)<dirichletmax) THEN
+                 !IF ((Particles % Coordinate(No,1))<5000.0_dp) THEN
+                 ! Element => Mesh % Elements(Particles % ElementIndex(No))
+                 ! CALL GetElementNodes(Nodes,Element)
+                 ! stat = sMPMElementInfo( Element, Particles, Model, Nodes, No, &
+                 !      Particles % gridres, Basis,dBasisdx)
+                 ! CALL GetScalarFieldInMesh(GridH, Element, Basis, Hinterp)
+                 ! Particles % H(No) = Hinterp
+                 Particles % H(No) = (m1*Particles % Coordinate(No,1) + m2)**(-0.25_dp)
+              END IF
+           END IF
+        END IF
      END DO
   END IF
+
 
   IF (Particles % ShapeFunctions == 'gimpm') THEN
      Particles % pvolume(:) = Particles % Length(:,1)*Particles % Length(:,2)
   END IF
 
   IF (smoothdam) THEN
-     CALL Info(SolverName,'Smoothing thickness for fully damaged material points',Level=4)      
+     CALL Info(SolverName,'Smoothing thickness for fully damaged material points',Level=4)
      CALL smoothrupth(Particles, Mesh, lc, smoothiters)
   END IF
 
@@ -669,63 +813,63 @@ SUBROUTINE UpdateParticleHandMass( Model, Solver, dt, TransientSimulation)
   END IF
 
 
-  Particles % mass(:) = Particles % pvolume(:) * Particles % H(:) * Particles % rhoi  
+  Particles % mass(:) = Particles % pvolume(:) * Particles % H(:) * Particles % rhoi
 
 END SUBROUTINE UpdateParticleHandMass
 
 !**************************************************************************
 
 !> (Old?) solver to update particle H, Zs, grounded mask, Mass according to mesh
-!! Where is this used? 
+!! Where is this used?
 SUBROUTINE Update_Particle_H_GZs_GM_Mass_From_Mesh( Model, Solver, dt, TransientSimulation)
 
-  USE MPMUtils
+USE MPMUtils
 
-  IMPLICIT NONE
-  TYPE(Particle_t), POINTER :: Particles  
-  TYPE(Solver_t), TARGET :: Solver
-  TYPE(ValueList_t), POINTER :: Params  
-  TYPE(Model_t) :: Model
-  REAL(KIND=dp) :: dt,Hf
-  LOGICAL :: TransientSimulation
-  TYPE(Mesh_t), POINTER :: Mesh
-  INTEGER :: No, ii
-  LOGICAL :: Visited=.FALSE.,GotIt,nohupdate
-  CHARACTER(LEN=MAX_NAME_LEN) :: SolverName
+IMPLICIT NONE
+TYPE(Particle_t), POINTER :: Particles
+TYPE(Solver_t), TARGET :: Solver
+TYPE(ValueList_t), POINTER :: Params
+TYPE(Model_t) :: Model
+REAL(KIND=dp) :: dt,Hf
+LOGICAL :: TransientSimulation
+TYPE(Mesh_t), POINTER :: Mesh
+INTEGER :: No, ii
+LOGICAL :: Visited=.FALSE.,GotIt,nohupdate
+CHARACTER(LEN=MAX_NAME_LEN) :: SolverName
 
-  SAVE :: visited, nohupdate
+SAVE :: visited, nohupdate
 
-  Particles => GlobalParticles
-  WRITE(SolverName, '(A)') 'Update_Particle_H_GZs_GM_and_Mass'
-
-
-  !h and gmsk from mesh to particle
-  CALL MPMMeshScalarToParticle(Particles, Model, 8)
+Particles => GlobalParticles
+WRITE(SolverName, '(A)') 'Update_Particle_H_GZs_GM_and_Mass'
 
 
-  IF (Particles % SEP) THEN
-     DO No = 1, Particles % NumberOfParticles
+!h and gmsk from mesh to particle
+CALL MPMMeshScalarToParticle(Particles, Model, 8)
 
-        IF (Particles % Gmask(No) > 0.99_dp) THEN
+
+IF (Particles % SEP) THEN
+  DO No = 1, Particles % NumberOfParticles
+
+     IF (Particles % Gmask(No) > 0.99_dp) THEN
+        Particles % Gmask(No) = 1.0_dp
+     ELSE IF (Particles % Gmask(No) < -0.99_dp) THEN
+        Particles % Gmask(No) = -1.0_dp
+     ELSE
+        Hf = Particles % rhow * &
+             (Particles % sealevel-Particles % bedrock(No)) &
+             /Particles % rhoi
+
+        IF (Particles % H(No) .LT. Hf) THEN
            Particles % Gmask(No) = 1.0_dp
-        ELSE IF (Particles % Gmask(No) < -0.99_dp) THEN
-           Particles % Gmask(No) = -1.0_dp
         ELSE
-           Hf = Particles % rhow * &
-                (Particles % sealevel-Particles % bedrock(No)) &
-                /Particles % rhoi
-
-           IF (Particles % H(No) .LT. Hf) THEN
-              Particles % Gmask(No) = 1.0_dp
-           ELSE
-              Particles % GMask(No) = -1.0_dp
-           END IF
+           Particles % GMask(No) = -1.0_dp
         END IF
+     END IF
 
-     END DO
-  END IF
+  END DO
+END IF
 
-  Particles % mass(:) = Particles % pvolume(:) * Particles % H(:) * Particles % rhoi 
+Particles % mass(:) = Particles % pvolume(:) * Particles % H(:) * Particles % rhoi
 
 END SUBROUTINE Update_Particle_H_GZs_GM_Mass_From_Mesh
 
@@ -738,10 +882,10 @@ SUBROUTINE ParticlesToMesh( Model, Solver, dt, TransientSimulation)
   USE MPMUtils
 
   IMPLICIT NONE
-  TYPE(Particle_t), POINTER :: Particles  
+  TYPE(Particle_t), POINTER :: Particles
   TYPE(Solver_t), TARGET :: Solver
   TYPE(Model_t) :: Model
-  REAL(KIND=dp) :: dt,dirichletmax
+  REAL(KIND=dp) :: dt,dirichletmax,dirichletmin
   LOGICAL :: TransientSimulation,Visited=.FALSE.,GotIt,Test1D=.FALSE.
   CHARACTER(LEN=MAX_NAME_LEN) :: SolverName
   TYPE(Variable_t), POINTER :: H,Hi,Vel1,Vel1i
@@ -750,7 +894,7 @@ SUBROUTINE ParticlesToMesh( Model, Solver, dt, TransientSimulation)
   INTEGER :: i
 
   SAVE :: Visited,SolverName,Test1D,H,HPerm,HVal,Hi,HiPerm,HiVal,Vel1,Vel1Perm,&
-       Vel1Val,Vel1i,Vel1iPerm,Vel1iVal,dirichletmax
+       Vel1Val,Vel1i,Vel1iPerm,Vel1iVal,dirichletmax,dirichletmin
 
   Particles => GlobalParticles
 
@@ -763,14 +907,16 @@ SUBROUTINE ParticlesToMesh( Model, Solver, dt, TransientSimulation)
 
      PRINT *,''
      IF (Particles % weighth) THEN
-        CALL Info(SolverName,'Weighting H',Level=3) 
+        CALL Info(SolverName,'Weighting H',Level=3)
      ELSE
-        CALL Info(SolverName,'Not Weighting H',Level=3) 
+        CALL Info(SolverName,'Not Weighting H',Level=3)
      END IF
      PRINT *,''
 
      Test1D = ListGetLogical(Solver % Values,'Test1D',GotIt)
-     IF (.NOT. GotIt) Test1D = .FALSE.     
+     IF (.NOT. GotIt) Test1D = .FALSE.
+
+
 
      IF (Test1D) THEN
 
@@ -791,26 +937,40 @@ SUBROUTINE ParticlesToMesh( Model, Solver, dt, TransientSimulation)
         Vel1iVal => Vel1i % Values
 
         dirichletmax = GetConstReal(Solver % Values,'dirichlet max x',GotIt)
+        IF (.not. GotIt) THEN
+           dirichletmax=-HUGE(1.0_dp)
+        ENDIF
+
+        dirichletmin = GetConstReal(Solver % Values,'dirichlet min x',GotIt)
+        IF (.not. GotIt) THEN
+           dirichletmin=HUGE(1.0_dp)
+        ENDIF
+
+        PRINT *,'dirichlet min max',dirichletmin,dirichletmax
+
 
      END IF
 
      Visited = .TRUE.
   END IF
 
-  CALL Info(SolverName,'Updating Mesh H, Binit, Velocity',Level=3) 
+
+  CALL Info(SolverName,'Updating Mesh H, Binit, Velocity',Level=3)
   CALL MPMParticlesToNodes( Particles, Model, 2)
   CALL Info(SolverName,'Done Updating Mesh H, Binit, Velocity',Level=3)
 
 
 
   IF (Test1D) THEN
-
      Do i = 1,Model % Mesh % NumberOfNodes
         IF (Model % Mesh % Nodes % x(i) <= dirichletmax) THEN
            HVal(HPerm(i)) = HiVal(HiPerm(i))
            Vel1Val(Vel1Perm(i)) = Vel1iVal(Vel1iPerm(i))
         END IF
-
+        IF (Model % Mesh % Nodes % x(i) >= dirichletmin) THEN
+           HVal(HPerm(i)) = HiVal(HiPerm(i))
+           !Vel1Val(Vel1Perm(i)) = Vel1iVal(Vel1iPerm(i))
+        END IF
      END DO
   END IF
 
@@ -832,11 +992,11 @@ SUBROUTINE MeshToParticles( Model, Solver, dt, TransientSimulation)
   USE MPMUtils
 
   IMPLICIT NONE
-  TYPE(Particle_t), POINTER :: Particles  
+  TYPE(Particle_t), POINTER :: Particles
   TYPE(ValueList_t), POINTER :: Params
   TYPE(Solver_t), TARGET :: Solver
   TYPE(Model_t) :: Model
-  REAL(KIND=dp) :: dt  
+  REAL(KIND=dp) :: dt
   LOGICAL :: TransientSimulation
   CHARACTER(LEN=MAX_NAME_LEN) :: SolverName
 
@@ -848,9 +1008,9 @@ SUBROUTINE MeshToParticles( Model, Solver, dt, TransientSimulation)
 
   ! 3D viscosity from temperature, if needed:
   IF ((.NOT.  Particles % constlintemp) .AND. (.NOT. Particles % useconsttemp)) THEN
-     CALL Info(SolverName,'interpolation of bz to ungrounding particles...',Level=1)
-     CALL MPMMeshVectorToParticle(Particles, Model, 5,2 )     
-     CALL Info(SolverName,'interpolation done',Level=1)
+     CALL Info(SolverName,'interpolation of bz to ungrounding particles...',Level=3)
+     CALL MPMMeshVectorToParticle(Particles, Model, 5,2 )
+     CALL Info(SolverName,'interpolation done',Level=3)
   END IF
 
 END SUBROUTINE MeshToParticles
@@ -865,17 +1025,17 @@ SUBROUTINE MeshDamageToParticle(Model, Solver, dt, TransientSimulation)
   USE Lists
 
   IMPLICIT NONE
-  TYPE(Particle_t), POINTER :: Particles  
+  TYPE(Particle_t), POINTER :: Particles
   TYPE(Solver_t), TARGET :: Solver
   TYPE(Model_t) :: Model
   REAL(KIND=dp) :: dt,divu
-  TYPE(Element_t), POINTER :: Element  
+  TYPE(Element_t), POINTER :: Element
   LOGICAL :: TransientSimulation
   TYPE(Mesh_t), POINTER :: Mesh
   INTEGER :: No, ii, elem
   LOGICAL :: Visited=.FALSE.,GotIt
   CHARACTER(LEN=MAX_NAME_LEN) :: SolverName
-  TYPE(Variable_t), POINTER :: DVar  
+  TYPE(Variable_t), POINTER :: DVar
   INTEGER, POINTER :: DPerm(:)
   REAL(KIND=dp), POINTER :: DValues(:)
   REAL(KIND=dp) :: Basis(4),dBasisdx(4,3),Coord(3)
@@ -888,7 +1048,7 @@ SUBROUTINE MeshDamageToParticle(Model, Solver, dt, TransientSimulation)
   Particles % Dav = 0.0_dp
   DVar => VariableGet(Model % Mesh % Variables, 'damage' )
   DValues => DVar % Values
-  DPerm => DVar % Perm  
+  DPerm => DVar % Perm
 
   DO No = 1,Particles % NumberOfParticles
      Coord = GetParticleCoord(Particles,No)
@@ -920,7 +1080,7 @@ SUBROUTINE SaveParticleData( Model,Solver,dt,TransientSimulation )
   TYPE(Model_t) :: Model
   REAL(KIND=dp) :: dt, SaveInterval,SaveStep,EndTime,AlwaysSaveTime,ymax
   LOGICAL :: TransientSimulation
-  TYPE(ValueList_t), POINTER :: Params     
+  TYPE(ValueList_t), POINTER :: Params
   LOGICAL ::  Found,UseInterval,GotIt,UseAlwaysSaveTime,savetimestep,&
        UseMismipFinalDamSave,mismipfinalsave
   INTEGER :: VisitedTimes = 0, OutputInterval,No
@@ -953,7 +1113,7 @@ SUBROUTINE SaveParticleData( Model,Solver,dt,TransientSimulation )
      OutputDirectory = GetString( Solver % Values,'Filename Directory')
      FileNamePrefix = GetString( Solver % Values,'Filename Prefix')
 
-     FileName = TRIM(OutputDirectory)// '' //TRIM(FilenamePrefix)// '.result'     
+     FileName = TRIM(OutputDirectory)// '' //TRIM(FilenamePrefix)// '.result'
 
      SaveStep = 0.0_dp
 
@@ -963,7 +1123,7 @@ SUBROUTINE SaveParticleData( Model,Solver,dt,TransientSimulation )
      UseAlwaysSaveTime = GetLogical( Params, 'Use Always Save Time', GotIt )
      IF (.NOT. GotIt) THEN
         Call Warn('SaveParticleData',&
-             'Did not specify "Use Always Save Time" in Params so setting to false')        
+             'Did not specify "Use Always Save Time" in Params so setting to false')
         UseAlwaysSaveTime = .FALSE.
      END IF
 
@@ -972,7 +1132,7 @@ SUBROUTINE SaveParticleData( Model,Solver,dt,TransientSimulation )
         AlwaysSaveTime = GetCReal( Params,'Always Save Time', GotIt)
         IF (.NOT. GotIt) THEN
            Call Warn('SaveParticleData',&
-                'Did not specify "Always Save Time = Real" in Params so will not use!')        
+                'Did not specify "Always Save Time = Real" in Params so will not use!')
            UseAlwaysSaveTime = .FALSE.
         END IF
      END IF
@@ -981,7 +1141,7 @@ SUBROUTINE SaveParticleData( Model,Solver,dt,TransientSimulation )
      UseMismipFinalDamSave = GetLogical( Params, 'Use MISMIP Final Damage Save', GotIt )
      IF (.NOT. GotIt) THEN
         Call Warn('SaveParticleData',&
-             'Did not specify "Use MISMIP Final Damage Save" in Params so setting to false')         
+             'Did not specify "Use MISMIP Final Damage Save" in Params so setting to false')
         UseMismipFinalDamSave = .FALSE.
      END IF
 
@@ -1053,7 +1213,7 @@ SUBROUTINE SaveParticleData( Model,Solver,dt,TransientSimulation )
      ELSEIF (UseAlwaysSaveTime .AND. Particles % time >= AlwaysSaveTime) THEN
         savetimestep = .TRUE.
      ELSEIF (mismipfinalsave) THEN
-        savetimestep = .TRUE.        
+        savetimestep = .TRUE.
      ELSE
         savetimestep = .FALSE.
      END IF
@@ -1114,7 +1274,7 @@ FUNCTION MPMTimestep( Model ) RESULT( dt )
   REAL(KIND=dp), POINTER :: TimestepSizes(:,:)
   REAL(KIND=dp) :: dt0,prevdt
   LOGICAL :: GotIt
-  TYPE(Particle_t), POINTER :: Particles  => NULL()   
+  TYPE(Particle_t), POINTER :: Particles  => NULL()
 
   SAVE :: VisitedTimes,Mesh
 
@@ -1122,7 +1282,7 @@ FUNCTION MPMTimestep( Model ) RESULT( dt )
 
   IF (VisitedTimes == 0) THEN
      Mesh => GetMesh()
-     vtime = VariableGet(Mesh % Variables, 'time')
+     vtime => VariableGet(Mesh % Variables, 'time')
      vtime % Values(1) = 0.0_dp
 
      Particles % time = 0.0_dp
@@ -1148,7 +1308,7 @@ FUNCTION SSATimestep( Model ) RESULT( dt )
   USE Types
   USE Lists
   USE DefUtils
-  USE MPMUtils  
+  USE MPMUtils
 
   IMPLICIT NONE
 
@@ -1161,12 +1321,12 @@ FUNCTION SSATimestep( Model ) RESULT( dt )
   REAL(KIND=dp), POINTER :: TimestepSizes(:,:),VValues(:)
   INTEGER, POINTER :: VPerm(:)
   LOGICAL :: Found,usesteady
-  TYPE(Particle_t), POINTER :: Particles  => NULL()   
+  TYPE(Particle_t), POINTER :: Particles  => NULL()
 
 
-  SAVE :: VisitedTimes,mult,usesteady,steadytimestep,gridres,cflconstant 
+  SAVE :: VisitedTimes,mult,usesteady,steadytimestep,gridres,cflconstant
 
-  Particles => GlobalParticles 
+  Particles => GlobalParticles
 
   IF (VisitedTimes == 0) THEN
 
@@ -1224,14 +1384,14 @@ FUNCTION SSATimestep( Model ) RESULT( dt )
 
   CALL Info('','',Level=1)
   CALL Info('','',Level=1)
-  WRITE(Message,'(a,I10)') 'Timestep',VisitedTimes  
+  WRITE(Message,'(a,I10)') 'Timestep',VisitedTimes
   CALL Info('SSATimestep',Message,Level=1)
-  
-  WRITE(Message,'(a,ES12.3)') 'dt',dt  
+
+  WRITE(Message,'(a,ES12.3)') 'dt',dt
+  CALL Info('SSATimestep',Message,Level=2)
+
+  WRITE(Message,'(a,ES12.3)') 'Time',Particles % Time
   CALL Info('SSATimestep',Message,Level=1)
-  
-  WRITE(Message,'(a,ES12.3)') 'Time',Particles % Time  
-  CALL Info('SSATimestep',Message,Level=1)  
   CALL Info('','',Level=1)
 
 
@@ -1239,11 +1399,33 @@ FUNCTION SSATimestep( Model ) RESULT( dt )
   !CALL Info( 'ssa timestep',Message, Level=1 )
   CALL ListAddConstReal(Model % Simulation,'res: ssa timestep',dt)
 
-  CALL ListAddConstReal(Model % Simulation,'res: MPM timestep',dt)  
+  CALL ListAddConstReal(Model % Simulation,'res: MPM timestep',dt)
 
 END FUNCTION SSATimestep
 
 !**************************************************************************
+!coordinate x,ssavelocity x, InitCoord1
+FUNCTION MoveMeshUpLag( Model,nodenumber,VarIn ) RESULT( VarOut )
+  USE Types
+  USE Lists
+  USE MPMUtils
+
+  IMPLICIT NONE
+
+  TYPE(Model_t) :: Model
+  REAL(KIND=dp) :: dt
+  INTEGER :: nodenumber
+  REAL(KIND=dp) :: VarIn(3),VarOut
+  TYPE(Particle_t), POINTER :: Particles  => NULL()
+
+  Particles => GlobalParticles
+
+  dt = Particles % dtime
+
+  VarOut = (VarIn(1) + VarIn(2)*dt) - VarIn(3)
+
+END FUNCTION MoveMeshUpLag
+
 
 !> The 3-D SSA-MPM creep damage solver.
 !! CAUTION: There are several experimental functions in this solver.
@@ -1309,13 +1491,13 @@ SUBROUTINE UpdateCreepDamage( Model,Solver,dt,TransientSimulation )
   REAL(KIND=dp) :: maxdDsave,targetdd,ddscale,nonlocskip,cflconstant
 
   REAL(KIND=dp) :: DS(2,2)
-  LOGICAL :: larcenfmel  
+  LOGICAL :: larcenfmel
 
 #ifdef USE_ISO_C_BINDINGS
   REAL(KIND=dp) :: starttime, endtime,time2s,time2e
 #else
   REAL(KIND=dp) :: starttime, endtime,time2s,time2e
-#endif  
+#endif
 
 
   SAVE :: Visited, RKM, maxgiventimestep, maxalloweddD,&
@@ -1329,7 +1511,7 @@ SUBROUTINE UpdateCreepDamage( Model,Solver,dt,TransientSimulation )
        maxddsave,defaultcriticaldamage,troubleshoot,ddscalevec,&
        targetdd,nldDthres, zerostresscompare, &
        nonlocskip,usenonlocskip,cflconstant,suture,&
-       larcenfmel 
+       larcenfmel
 
 
   Params => GetSolverParams()
@@ -1444,11 +1626,11 @@ SUBROUTINE UpdateCreepDamage( Model,Solver,dt,TransientSimulation )
              'Need to define "sthresborstad=Real $sthresborstad" in constants')
         kparam = GetConstReal( Model % Constants, 'kparam', GotIt )
         IF (.NOT. GotIt) CALL Fatal(SolverName,&
-             'Need to define "kparam=Real $kparam" in constants')    
+             'Need to define "kparam=Real $kparam" in constants')
      END IF
 
 
-     !Ellipse nonlocal scheme, similar to Giry 2011. 
+     !Ellipse nonlocal scheme, similar to Giry 2011.
      useellipse = GetLogical( Params,'Use Ellipse',GotIt)
      IF (.NOT. GotIt) THEN
         Call Warn(SolverName,&
@@ -1576,7 +1758,7 @@ SUBROUTINE UpdateCreepDamage( Model,Solver,dt,TransientSimulation )
 
      rupttol = GetCReal( Params,'Ruptured Damage convergence tolerance',GotIt)
      IF (.NOT. GotIt) CALL Fatal(SolverName, &
-          'Need to define "Ruptured Damage convergence tolerance = Real $Dtol"')     
+          'Need to define "Ruptured Damage convergence tolerance = Real $Dtol"')
 
      ALLOCATE( layerdone(numlayers) )
      ALLOCATE(zref(numlayers))
@@ -1618,7 +1800,7 @@ SUBROUTINE UpdateCreepDamage( Model,Solver,dt,TransientSimulation )
 
 !!!!------------------------------------ END FIRST TIME ONLY -------------------------------!!!!!
 
-  CALL Info(SolverName,'Updating Particle Damage',Level=3)  
+  CALL Info(SolverName,'Updating Particle Damage',Level=3)
 
   starttime = RealTime()
 
@@ -1663,16 +1845,16 @@ SUBROUTINE UpdateCreepDamage( Model,Solver,dt,TransientSimulation )
      DO No = 1,NoParticles
         !----------- can this particle be skipped? -------------!
 
-        IF (Particles % damstatus(No) == 1 .AND. Particles % useriftdmax) CYCLE        
+        IF (Particles % damstatus(No) == 1 .AND. Particles % useriftdmax) CYCLE
 
         IF (.NOT. allowgrounded) THEN
            IF (Particles % Gmask(No) < 0.0_dp) CYCLE
         END IF
 
         IF (Particles % nodamregion) THEN
-           IF ( (Particles % Coordinate(No,1) < Particles % ndxmax) .AND. & 
+           IF ( (Particles % Coordinate(No,1) < Particles % ndxmax) .AND. &
                 (Particles % Coordinate(No,1) > Particles % ndxmin) ) THEN
-              IF ( (Particles % Coordinate(No,2) < Particles % ndymax) .AND. & 
+              IF ( (Particles % Coordinate(No,2) < Particles % ndymax) .AND. &
                    (Particles % Coordinate(No,2) > Particles % ndymin) ) THEN
                  Particles % Damage(No,:,:) = 0.0_dp
                  Particles % Dav(No,:) = 0.0_dp
@@ -1683,9 +1865,9 @@ SUBROUTINE UpdateCreepDamage( Model,Solver,dt,TransientSimulation )
 
         IF (Particles % restrictdam) THEN
            IF (Particles % Coordinate(No,1) < Particles % rdxmin) CYCLE
-           IF (Particles % Coordinate(No,1) > Particles % rdxmax) CYCLE       
+           IF (Particles % Coordinate(No,1) > Particles % rdxmax) CYCLE
            IF (Particles % Coordinate(No,2) < Particles % rdymin) CYCLE
-           IF (Particles % Coordinate(No,2) > Particles % rdymax) CYCLE  
+           IF (Particles % Coordinate(No,2) > Particles % rdymax) CYCLE
         END IF
 
 
@@ -1725,7 +1907,7 @@ SUBROUTINE UpdateCreepDamage( Model,Solver,dt,TransientSimulation )
 
   IF (UseBorstad) THEN
      DO No = 1,NoParticles
-        IF (Particles % xpic(No,6) == zero) CYCLE        
+        IF (Particles % xpic(No,6) == zero) CYCLE
         srthres = (stressthres/Particles % Binit(No))**n
         CALL BorstadDamage(Particles, No, srthres, Particles % GradVel(No,:),Particles % dD(No,1,1),n,kparam)
 
@@ -1747,10 +1929,10 @@ SUBROUTINE UpdateCreepDamage( Model,Solver,dt,TransientSimulation )
   Particles % xpic(:,3) = 0.0_dp
   Particles % xpic(:,4) = numlayers
 
-  !debugging 
+  !debugging
   Particles % equaleigcount = 0
 
-  IF (maxalloweddD > zero) THEN 
+  IF (maxalloweddD > zero) THEN
 
      DO No = 1, NoParticles
 
@@ -1843,33 +2025,33 @@ SUBROUTINE UpdateCreepDamage( Model,Solver,dt,TransientSimulation )
         !EeExp =  (1.0_dp-n)/(2.0_dp * n)
         !EFexp = -1.0_dp/n
 
-        RHS = (Ee**EeExp) * (Particles % EF(No)**EFexp )         
+        RHS = (Ee**EeExp) * (Particles % EF(No)**EFexp )
 
 
         IF (Particles % Gmask(No) < 0.0_dp) THEN
            zs = Particles % H(No)+Particles % Bedrock(No)
         ELSE
            !particle surface height
-           !zsRHS = (1.0_dp - rhoi/rhow)             
+           !zsRHS = (1.0_dp - rhoi/rhow)
            zs = Particles % H(No)*zsRHS
         END IF
 
 
         !----------------------------------------------------------------------!
         !---------         calculate change in damage                ----------!
-        !----------------------------------------------------------------------!        
+        !----------------------------------------------------------------------!
 
         !These calculations are done for each vertical layer of the particle.
         !This code currently assumes damage should nucleate at the surface or base
         !of the shelf and propagate towards the center.  A layer will not damage
         !unless all other layers above or below the layer are damaged.
 
-        !Calculations are performed on each layer starting from the basal layer 
+        !Calculations are performed on each layer starting from the basal layer
         !and looping towards the surface layer.  However, if one of these layers
         !accumulates no damage, the loop is restarted, but now working from
         !surface layer towards the bottom layer.  This surface-to-base loop ends
         !when a layer is reached that either:
-        !-accumulates no damage 
+        !-accumulates no damage
         !-has already been processed from the basal-to-surface loop
         !This way, we don't have to process the middle layers that won't accumulate
         !damage, resulting in significantly faster code (especially if most of the
@@ -1945,15 +2127,21 @@ SUBROUTINE UpdateCreepDamage( Model,Solver,dt,TransientSimulation )
                  !NO BASAL WATER PRESSURE
                  !  Pw = 0.0_dp
                  Particles % pressure1 = rhoitimesgravity * (zs-z)
+                 !Particles % P_i = Particles % pressure1
+                 !Particles % P_w = 0.0
               ELSE
                  !BASAL WATER PRESSURE
                  !Pw = rhowtimesgravity * (0.0_dp-z)
                  !pressure1 = (rhoitimesgravity * (zs-z)) - Pw
 
+                 !Particles % P_i = rhoitimesgravity * (zs-z)
+
                  IF (usewp) THEN
                     Particles % pressure1 = rhoitimesgravity*(zs-z) + rhowtimesgravity*z
+                    !Particles % P_w = rhowtimesgravity * z
                  ELSE
                     Particles % pressure1 = rhoitimesgravity * (zs-z)
+                    !Particles % P_w = 0.0_dp
                  END IF
               END IF
 
@@ -1965,7 +2153,7 @@ SUBROUTINE UpdateCreepDamage( Model,Solver,dt,TransientSimulation )
 
               !introduce some noise on the stress threshold:
               u = EvenRandom()
-              v = EvenRandom()     
+              v = EvenRandom()
               sigmath_var = ABS(0+sthresmod*SQRT(-2.0_dp*LOG((one-u)))*COS(2.0_dp*nbrPi*v))
               Particles % sthresmod = Particles % sthres * (one+sigmath_var)
 
@@ -2014,7 +2202,7 @@ SUBROUTINE UpdateCreepDamage( Model,Solver,dt,TransientSimulation )
 
                     TTT = D(1)+dD(1)+D(2)+dD(2)
                     DDD = (D(1)+dD(1))*(D(2)+dD(2))-(D(4)+dD(4))*(D(4)+dD(4))
-                    eigdmax = 0.5_dp*TTT+sqrt(0.25_dp*TTT*TTT-DDD)                    
+                    eigdmax = 0.5_dp*TTT+sqrt(0.25_dp*TTT*TTT-DDD)
 
                     usewp = .TRUE.
                  END IF
@@ -2058,7 +2246,7 @@ SUBROUTINE UpdateCreepDamage( Model,Solver,dt,TransientSimulation )
         !either restrict the timestep based on the change in vertically integrated damage
         !or the change in damage of any layer EDIT: always dvert int  now
 
-        IF (Particles % damstatus(No)<1 ) THEN 
+        IF (Particles % damstatus(No)<1 ) THEN
 
            CALL GetMaxdDPrincipalDamageVert(Particles,No,numlayers,pddmax)
 
@@ -2077,7 +2265,7 @@ SUBROUTINE UpdateCreepDamage( Model,Solver,dt,TransientSimulation )
               Particles % dtime = Particles % dtime/1.5_dp
               restart=.TRUE.
 
-              dt = Particles % dtime 
+              dt = Particles % dtime
               PRINT *,'Damage dt',dt
               PRINT *,'Restart due to No',No
 
@@ -2242,8 +2430,8 @@ SUBROUTINE UpdateCreepDamage( Model,Solver,dt,TransientSimulation )
            !This is the old nonlocal scheme, which should no longer be called
            !by default
            !TODO: clean this up
-           
-           CALL Info(SolverName,'Start Nonlocal Damage',Level=3)   
+
+           CALL Info(SolverName,'Start Nonlocal Damage',Level=3)
            CALL nonlocalintegraldD(Particles, numlayers, &
                 INT(count), lc, gaussk, gridres,vertlc)
            CALL Info(SolverName,'Nonlocal Damage Done',Level=3)
@@ -2291,8 +2479,8 @@ SUBROUTINE UpdateCreepDamage( Model,Solver,dt,TransientSimulation )
 
                  !ISOTROPIC (gamma == 0)
 
-                 Particles % Damage(No,ii,1:3) = Particles % Damage(No,ii,1) + &
-                      Particles % dD(No,ii,1)
+                 Particles % Damage(No,ii,1:3) = Particles % Damage(No,ii,1:3) + &
+                      Particles % dD(No,ii,1:3)
 
                  IF (Particles % Damage(No,ii,1) < Particles % mindam ) THEN
                     Particles % Damage(No,ii,:) = 0.0_dp
@@ -2442,7 +2630,7 @@ SUBROUTINE UpdateCreepDamage( Model,Solver,dt,TransientSimulation )
         WHERE (Particles % Damage(No,:,:) .NE. Particles % Damage(No,:,:)) &
              Particles % Damage(No,:,:)  = 0.0_dp
 
-        CALL VertIntDamFromVisc(Particles, No, numlayers,Model)     
+        CALL VertIntDamFromVisc(Particles, No, numlayers,Model)
      END IF
 
   END DO
@@ -2464,7 +2652,7 @@ SUBROUTINE UpdateCreepDamage( Model,Solver,dt,TransientSimulation )
   Particles % currentgamma = Particles % gamma
 
   IF (lc>0.0_dp ) THEN
-     ddmax = MAXVAL(ABS(Particles % dD(:,:,:)))     
+     ddmax = MAXVAL(ABS(Particles % dD(:,:,:)))
      PRINT *,'Max particle layer dD over current timestep after nonlocal: ', ddmax
      PRINT *,' '
   END IF
@@ -2562,7 +2750,7 @@ SUBROUTINE UpdateDamageModifiedZeroStress( Model,Solver,dt,TransientSimulation )
   REAL(KIND=dp) :: starttime, endtime,time2s,time2e
 #else
   REAL(KIND=dp) :: starttime, endtime,time2s,time2e
-#endif  
+#endif
 
 
   SAVE :: Visited, RKM, maxgiventimestep, maxalloweddD,&
@@ -2675,7 +2863,7 @@ SUBROUTINE UpdateDamageModifiedZeroStress( Model,Solver,dt,TransientSimulation )
      END IF
 
 
-     CriticalDamage = Particles % CriticalDav 
+     CriticalDamage = Particles % CriticalDav
 
      MinSRInv = Particles % criticalshearrate
      rhow = Particles % rhow
@@ -2737,7 +2925,7 @@ SUBROUTINE UpdateDamageModifiedZeroStress( Model,Solver,dt,TransientSimulation )
 
            IF (maxeig >= Particles % criticaldav) THEN
               ! Particles % prupt = .TRUE.
-              Particles % damstatus(No) = 1 
+              Particles % damstatus(No) = 1
               Particles % Dav(No,1:3) = Particles % riftdmax
               Particles % Dav(No,4) = 0.0_dp
               Particles % damstatus(No) = 1
@@ -2745,12 +2933,12 @@ SUBROUTINE UpdateDamageModifiedZeroStress( Model,Solver,dt,TransientSimulation )
         END IF
      END DO
 
-     Visited = .TRUE.     
+     Visited = .TRUE.
   END IF
 
 !!!!------------------------------------ END FIRST TIME ONLY -------------------------------!!!!!
 
-  CALL Info(SolverName,'Updating Particle Damage Modified Zero Stress',Level=3)  
+  CALL Info(SolverName,'Updating Particle Damage Modified Zero Stress',Level=3)
 
   starttime = RealTime()
 
@@ -2812,9 +3000,9 @@ SUBROUTINE UpdateDamageModifiedZeroStress( Model,Solver,dt,TransientSimulation )
         END IF
 
         IF (Particles % nodamregion) THEN
-           IF ( (Particles % Coordinate(No,1) < Particles % ndxmax) .AND. & 
+           IF ( (Particles % Coordinate(No,1) < Particles % ndxmax) .AND. &
                 (Particles % Coordinate(No,1) > Particles % ndxmin) ) THEN
-              IF ( (Particles % Coordinate(No,2) < Particles % ndymax) .AND. & 
+              IF ( (Particles % Coordinate(No,2) < Particles % ndymax) .AND. &
                    (Particles % Coordinate(No,2) > Particles % ndymin) ) THEN
                  Particles % Damage(No,:,:) = 0.0_dp
                  Particles % Dav(No,:) = 0.0_dp
@@ -2825,9 +3013,9 @@ SUBROUTINE UpdateDamageModifiedZeroStress( Model,Solver,dt,TransientSimulation )
 
         IF (Particles % restrictdam) THEN
            IF (Particles % Coordinate(No,1) < Particles % rdxmin) CYCLE
-           IF (Particles % Coordinate(No,1) > Particles % rdxmax) CYCLE       
+           IF (Particles % Coordinate(No,1) > Particles % rdxmax) CYCLE
            IF (Particles % Coordinate(No,2) < Particles % rdymin) CYCLE
-           IF (Particles % Coordinate(No,2) > Particles % rdymax) CYCLE  
+           IF (Particles % Coordinate(No,2) > Particles % rdymax) CYCLE
         END IF
 
         IF ((Particles % Status(No) == PARTICLE_LOST) &
@@ -2859,7 +3047,7 @@ SUBROUTINE UpdateDamageModifiedZeroStress( Model,Solver,dt,TransientSimulation )
   pSR = 0.0_dp
 
 
-  IF (maxalloweddD > zero) THEN 
+  IF (maxalloweddD > zero) THEN
 
      DO No = 1, NoParticles
 
@@ -2881,7 +3069,7 @@ SUBROUTINE UpdateDamageModifiedZeroStress( Model,Solver,dt,TransientSimulation )
 
         !----------------------------------------------------------------------!
         !---------         calculate change in damage                ----------!
-        !----------------------------------------------------------------------!        
+        !----------------------------------------------------------------------!
 
         !particle strain rates
         pSR(1,1) = Particles % GradVel(No,1)
@@ -2979,7 +3167,7 @@ SUBROUTINE UpdateDamageModifiedZeroStress( Model,Solver,dt,TransientSimulation )
         END IF
 
 
-        IF (zsonly) RHS = 0.0_dp        
+        IF (zsonly) RHS = 0.0_dp
 
         dD = zero
         D(1:4) = Particles % Dav(No,1:4)
@@ -3039,7 +3227,7 @@ SUBROUTINE UpdateDamageModifiedZeroStress( Model,Solver,dt,TransientSimulation )
            IF (Particles % dD(No,2,1) < 1.0_dp) Particles % dD(No,2,1) = 1.0_dp
         END IF
 
-        Particles % prupt = .FALSE.        
+        Particles % prupt = .FALSE.
 
         Particles % dD(No,1,1:4) = dD(1:4)
 
@@ -3071,14 +3259,14 @@ SUBROUTINE UpdateDamageModifiedZeroStress( Model,Solver,dt,TransientSimulation )
         ! IF (usemelt .AND. Particles % Gmask(No) >= 0.0_dp) THEN
         !    Particles % MB(No) = Particles % MB(No)+meltmb
         !5          !.0_dp
-        !  END IF        
+        !  END IF
 
         IF (ABS(maxdD) > maxalloweddd) THEN
            maxdD = 0.0_dp
            Particles % dtime = Particles % dtime/1.5_dp
            restart=.TRUE.
 
-           dt = Particles % dtime 
+           dt = Particles % dtime
            PRINT *,'Damage dt',dt
            PRINT *,'Restart due to No',No
 
@@ -3217,7 +3405,7 @@ SUBROUTINE UpdateDamageModifiedZeroStress( Model,Solver,dt,TransientSimulation )
               Df(2,2) = Particles % dD(No,1,2)
               Df(1,2) = Particles % dD(No,1,4)
               Df(2,1) = Df(1,2)
-              CALL Eigen2DSym_TryGenFirst(Df,EigVal,EigVec) 
+              CALL Eigen2DSym_TryGenFirst(Df,EigVal,EigVec)
               Particles % dbassis(No) = EigVal(2)/dt
            END IF
 
@@ -3226,7 +3414,7 @@ SUBROUTINE UpdateDamageModifiedZeroStress( Model,Solver,dt,TransientSimulation )
            Df(1,2) = Particles % Dav(No,4)
            Df(2,1) = Df(1,2)
 
-           CALL Eigen2DSym_TryGenFirst(Df,EigVal,EigVec)        
+           CALL Eigen2DSym_TryGenFirst(Df,EigVal,EigVec)
 
            IF (EigVal(2) > Particles % riftDmax) EigVal(2) = Particles % Riftdmax
            IF (EigVal(2) < 0.0_dp) EigVal(2) = 0.0_dp
@@ -3236,13 +3424,13 @@ SUBROUTINE UpdateDamageModifiedZeroStress( Model,Solver,dt,TransientSimulation )
            !rotate back
            w = EigVal(1)*EigVec(1,1)
            x = EigVal(2)*EigVec(1,2)
-           y = EigVal(1)*EigVec(2,1) 
+           y = EigVal(1)*EigVec(2,1)
            z = EigVal(2)*EigVec(2,2)
 
            Particles % Dav(No,1) = EigVec(1,1)*w + EigVec(1,2)*x
            Particles % Dav(No,2) = EigVec(2,1)*y + EigVec(2,2)*z
            Particles % Dav(No,4) = EigVec(2,1)*w + EigVec(2,2)*x
-           Particles % Dav(No,3) = 0.0_dp 
+           Particles % Dav(No,3) = 0.0_dp
 
            IF (EigVal(2)>=Particles % criticaldav) THEN
               EigVal(2) = Particles % RiftDmax
@@ -3264,7 +3452,7 @@ SUBROUTINE UpdateDamageModifiedZeroStress( Model,Solver,dt,TransientSimulation )
 
 
   IF (lc>0.0_dp ) THEN
-     ddmax = MAXVAL(ABS(Particles % dD(:,:,:)))     
+     ddmax = MAXVAL(ABS(Particles % dD(:,:,:)))
      PRINT *,'Max particle  dD over current timestep after nonlocal: ', ddmax
      PRINT *,' '
   END IF
@@ -3286,7 +3474,7 @@ SUBROUTINE SaveMaxFrontX_1Dtest( Model, Solver, dt, TransientSimulation)
   USE MPMUtils
 
   IMPLICIT NONE
-  TYPE(Particle_t), POINTER :: Particles  
+  TYPE(Particle_t), POINTER :: Particles
   TYPE(Solver_t), TARGET :: Solver
   TYPE(Model_t) :: Model
   REAL(KIND=dp) :: dt,maxx,fx,H,vel,gradvel
@@ -3300,8 +3488,7 @@ SUBROUTINE SaveMaxFrontX_1Dtest( Model, Solver, dt, TransientSimulation)
   Particles => GlobalParticles
   WRITE(SolverName, '(A)') 'SaveMaxFrontX'
 
-  CALL Info(SolverName,'Saving Max Front X',Level=3) 
-
+  CALL Info(SolverName,'Saving Max Front X',Level=3)
 
   IF( .NOT. Visited ) THEN
 
@@ -3347,8 +3534,14 @@ SUBROUTINE SaveMaxFrontX_1Dtest( Model, Solver, dt, TransientSimulation)
      CLOSE(10)
   END IF
 
-  PRINT *,'Time',Particles % time
-  PRINT *,'maxx',maxx 
+  IF (ABS(Particles % time - 300.0_dp) < 0.5_dp*dt) THEN
+     PRINT *,''
+     PRINT *,'sf,gridres,ppe',Particles % Shapefunctions, Particles % gridres, Particles % elementfraction
+     PRINT *,'Time',Particles % time
+     PRINT *,'maxx',maxx
+     PRINT *,'end diff, % gridres',maxx-1.770500136335967e+05,(maxx-1.770500136335967e+05)/Particles % gridres
+     PRINT *,''
+  END IF
 
 END SUBROUTINE SaveMaxFrontX_1Dtest
 
@@ -3360,10 +3553,10 @@ SUBROUTINE SaveParticleLoc_1Dtest( Model, Solver, dt, TransientSimulation)
   USE MeshUtils
   USE SolverUtils
   USE Lists
-  USE GeneralUtils  
+  USE GeneralUtils
 
   IMPLICIT NONE
-  TYPE(Particle_t), POINTER :: Particles  
+  TYPE(Particle_t), POINTER :: Particles
   TYPE(Solver_t), TARGET :: Solver
   TYPE(Model_t) :: Model
   REAL(KIND=dp) :: dt,count,fx,h,vel,gradvel,nearest,miny,closestx,targetinitloc
@@ -3378,7 +3571,7 @@ SUBROUTINE SaveParticleLoc_1Dtest( Model, Solver, dt, TransientSimulation)
   REAL(KIND=dp) :: currenttime
 #else
   REAL(KIND=dp) :: currenttime
-#endif    
+#endif
 
   SAVE :: Visited, OutputDirectory,FileNamePrefix,FileName,whichno,savehvelgradveltime,&
        minx,maxx
@@ -3386,10 +3579,10 @@ SUBROUTINE SaveParticleLoc_1Dtest( Model, Solver, dt, TransientSimulation)
   Particles => GlobalParticles
   WRITE(SolverName, '(A)') 'SaveParticleLoc'
 
-  CALL Info(SolverName,'Saving Particle Location',Level=3) 
+  CALL Info(SolverName,'Saving Particle Location',Level=3)
 
 
-  IF( .NOT. Visited ) THEN    
+  IF( .NOT. Visited ) THEN
 
      OutputDirectory = GetString( Solver % Values,'Filename Directory')
      FileNamePrefix = GetString( Solver % Values,'Filename Prefix')
@@ -3465,7 +3658,7 @@ SUBROUTINE SaveParticleLoc_1Dtest( Model, Solver, dt, TransientSimulation)
      END IF
 
      IF (Particles % shapefunctions == 'gimpm') THEN
-        pxmin = Particles % Coordinate(No,1) - Particles % Length(No,1)/2.0_dp        
+        pxmin = Particles % Coordinate(No,1) - Particles % Length(No,1)/2.0_dp
         pxmax = Particles % Coordinate(No,1) + Particles % Length(No,1)/2.0_dp
         totvol = pxmax-pxmin
 
@@ -3489,7 +3682,7 @@ SUBROUTINE SaveParticleLoc_1Dtest( Model, Solver, dt, TransientSimulation)
      END IF
 
      M = M + Particles % Mass(No)*scale
-     KE = KE + 0.5_dp*Particles % Mass(No)*scale*Particles % Velocity(No,1)*Particles % Velocity(No,1)     
+     KE = KE + 0.5_dp*Particles % Mass(No)*scale*Particles % Velocity(No,1)*Particles % Velocity(No,1)
   END DO
 
   IF (count>0) THEN
@@ -3524,8 +3717,6 @@ SUBROUTINE SaveParticleLoc_1Dtest( Model, Solver, dt, TransientSimulation)
 END SUBROUTINE SaveParticleLoc_1Dtest
 
 
-!> Several different measures of stress error are saved here. The one used in the
-!! paper is W_T_E
 SUBROUTINE SteadyStressError_1Dtest( Model, Solver, dt, TransientSimulation)
 
   USE MPMUtils
@@ -3533,37 +3724,44 @@ SUBROUTINE SteadyStressError_1Dtest( Model, Solver, dt, TransientSimulation)
   USE MeshUtils
   USE SolverUtils
   USE Lists
-  USE GeneralUtils  
+  USE GeneralUtils
 
   IMPLICIT NONE
-  TYPE(Particle_t), POINTER :: Particles  
+  TYPE(Particle_t), POINTER :: Particles
   TYPE(Solver_t), TARGET :: Solver
   TYPE(Model_t) :: Model
+  TYPE(Mesh_t), POINTER :: Mesh
   LOGICAL :: TransientSimulation
-  INTEGER :: No
-  LOGICAL :: Visited=.FALSE.
+  INTEGER :: No,i
+  LOGICAL :: Visited=.FALSE.,Found
   REAL(KIND=dp) :: dt
   CHARACTER(LEN=MAX_NAME_LEN) :: OutputDirectory,FileNamePrefix,FileName,SolverName
   REAL(KIND=dp) :: miny,minx,maxx,cm,secondsperyear,H0,v0,Q0,B0,A,C,EeExp,Axm,m1,m2,acm
-  REAL(KIND=dp) :: count,RMSnum_Tau,RMSnum_RTau,tot_P_Tau,tot_P_Rtau
+  REAL(KIND=dp) :: count,RMSnum_Tau,RMSnum_RTau,RMSnum_V,tot_P_Tau,tot_P_Rtau
   REAL(KIND=dp) ::  Exx,Ee,P_Tau,P_RTau,vol1d,Ha,A_Tau,A_RTau,totvolT,totvolRT
-  REAL(KIND=dp) :: RMS_Tau,RMS_RTau
+  REAL(KIND=dp) :: RMS_Tau,RMS_RTau,RMS_V
   REAL(KIND=dp) :: mean_P_Tau,mean_P_RTau,T_SS_tot,RT_SS_tot,T_SS_RES,RT_SS_RES
   REAL(KIND=dp) :: RR_T,RR_RT
   REAL(KIND=dp) :: NW_T_E,NW_RT_E,W_T_E,W_RT_E,W_T_E_b,W_RT_E_b
   REAL(KIND=dp) :: RSE_T,RSE_RT,nonanT,nonanRT,minsrinvsquared,nancount
-
+  REAL(KIND=dp) :: Va,xdiff,VL2,TauL2, W_V_E_b, totvolV, nonanV, RVE !, maxvelerror, maxtauerror
+  REAL(KIND=dp) :: RMSnum_Tau_W,RMSdenom_Tau_W,RMSnum_V_W,RMSdenom_V_W,Vtot,Vp
+  REAL(KIND=dp) :: RMSnum_V_W_M,RMSdenom_V_W_M
+  TYPE(Variable_t), POINTER :: VelVar
+  INTEGER, POINTER :: VelPerm(:)
+  REAL(KIND=dp), POINTER :: VelVal(:)
 
   SAVE :: Visited, OutputDirectory,FileNamePrefix,FileName,miny,minx,maxx,&
        cm,secondsperyear,H0,v0,Q0,B0,A,C,EeExp,Acm,m1,m2,minsrinvsquared
 
   Particles => GlobalParticles
-  WRITE(SolverName, '(A)') 'SaveParticleLoc'
+  WRITE(SolverName, '(A)') 'SteadyStressError_1Dtest'
 
-  CALL Info(SolverName,'Saving Particle Location',Level=3) 
+  CALL Info(SolverName,'Saving Particle Stats',Level=3)
 
+  Mesh => GetMesh()
 
-  IF( .NOT. Visited ) THEN    
+  IF( .NOT. Visited ) THEN
 
      OutputDirectory = GetString( Solver % Values,'Filename Directory')
      FileNamePrefix = GetString( Solver % Values,'Filename Prefix')
@@ -3577,14 +3775,33 @@ SUBROUTINE SteadyStressError_1Dtest( Model, Solver, dt, TransientSimulation)
      minx = 0.0_dp
      maxx = 250000.0_dp
 
+     minx = GetConstReal(Solver % Values,'minx',Found)
+     IF (.not. Found) THEN
+        minx=0.0_dp
+     ENDIF
+
+     maxx = GetConstReal(Solver % Values,'maxx',Found)
+     IF (.not. Found) THEN
+        maxx=250000.0_dp
+     ENDIF
+
      MinSRInvSquared = Particles % criticalshearrate * Particles % criticalshearrate
 
 
      !ANALYTICAL STUFF
      cm = 1.0_dp/3.0_dp
      secondsperyear = 31556926.0_dp
-     H0 = 600.0_dp
-     v0 = 300.0_dp
+     !H0 = 600.0_dp
+     !v0 = 300.0_dp
+
+     H0 = GetConstReal( Model % Constants,'H0',Found )
+     IF (.NOT. Found) CALL Fatal('USF_1dtest:', &
+          'initH: Need to define "H0 = Real $" in constants')
+
+     v0 = GetConstReal( Model % Constants,'v0',Found )
+     IF (.NOT. Found) CALL Fatal('USF_1dtest:', &
+          'initH: Need to define "H0 = Real $" in constants')
+
      Q0 = H0*v0
      B0 = 1.9E8_dp
      A = ((B0*1.0E-6_dp)**(-3.0_dp))*secondsperyear !Mpa^(-3) a^(-1)
@@ -3594,7 +3811,7 @@ SUBROUTINE SteadyStressError_1Dtest( Model, Solver, dt, TransientSimulation)
 
      EeExp = (cm-1.0_dp)/2.0_dp
      Acm = A**(-cm)
-     m1 = 4.0_dp*C/Q0     
+     m1 = 4.0_dp*C/Q0
      m2 = 1.0_dp/(H0*H0*H0*H0)
 
 
@@ -3602,59 +3819,73 @@ SUBROUTINE SteadyStressError_1Dtest( Model, Solver, dt, TransientSimulation)
   END IF
 
 
-  count = 0.0_dp
-  RMSnum_Tau = 0.0_dp
-  RMSnum_RTau = 0.0_dp
-  tot_P_Tau = 0.0_dp
-  tot_P_RTau = 0.0_dp
-  nancount = 0.0_dp
+  VelVar => VariableGet( Model % Mesh % Variables, 'SSAVelocity 1')
+  VelPerm => VelVar % Perm
+  VelVal => VelVar % Values
 
+  nancount=0
+
+  RMSnum_Tau_W   = 0.0_dp
+  RMSdenom_Tau_W = 0.0_dp
+
+  RMSnum_V_W   = 0.0_dp
+  RMSdenom_V_W = 0.0_dp
+
+  !mesh version
+  RMSnum_V_W_M   = 0.0_dp
+  RMSdenom_V_W_M = 0.0_dp
+
+  Vtot = 0.0_dp
 
   !XPIC AND dD are simply used for storage here, and have nothing to do with the
   !xpic routine nor the damage solver in this context
   Particles % xpic = 0.0_dp
   Particles % dD = 0.0_dp
 
+  DO i = 1,Mesh % NumberOfNodes
+     IF (Mesh % Nodes % x(i) >= minx .AND. Mesh % Nodes % x(i)<=maxx) THEN
+        Ha = (m1*Mesh % Nodes % x(i) + m2)**(-0.25_dp)
+        Va = Q0/Ha
+        Vp = VelVal(VelPerm(i))
+        RMSnum_V_W_M   = RMSnum_V_W_M + (Va-Vp)*(Va-Vp)
+        RMSdenom_V_W_M = RMSdenom_V_W_M + Va*Va
+     END IF
+  END DO
+
+
+
   DO No = 1,Particles % NumberOfParticles
+
 
      IF (Particles % Coordinate(No,1) < minx) CYCLE
      IF (Particles % Coordinate(No,1) > maxx) CYCLE
-     IF (Particles % Coordinate(No,2) > miny) CYCLE
 
      IF (Particles % ShapeFunctions == 'gimpm') THEN
         IF (Particles % Coordinate(No,1) + 0.5_dp*Particles % Length(No,1) > maxx) CYCLE
         IF (Particles % Coordinate(No,1) - 0.5_dp*Particles % Length(No,1) < minx) CYCLE
      END IF
 
+
+     vol1d = Particles % pvolume(No)
+
+
      !----------particle stresses-----
      Exx = Particles % GradVel(No,1)
      Ee = Exx*Exx
 
-     IF (Ee < MinSRInvSquared) THEN
-        Ee = MinSRInvSquared
-     END IF
-
-     !dev stress
-     P_Tau = Acm*(Ee**EeExp)*Exx
-     !resistive stress
-     P_RTau = 2.0_dp*P_Tau*Particles % H(No)
-
-     vol1d = Particles % pvolume(No)/Particles % Length(No,2)
+     IF (Ee < MinSRInvSquared) Ee = MinSRInvSquared
 
 
-     Particles % xpic(No,2) = P_Tau
-     Particles % xpic(No,3) = P_RTau
-     Particles % dD(No,1,2) = vol1d
+     P_Tau = Acm*(Ee**EeExp)*Exx      !dev stress
 
      !------analytical stresses-------
      Ha = (m1*Particles % Coordinate(No,1) + m2)**(-0.25_dp)
+     !Velocity
+     Va = Q0/Ha
      Exx = C*Ha*Ha*Ha
      Ee = Exx*Exx
      !dev stress
      A_Tau = Acm*(Ee**EeExp)*Exx
-     !resistive stress
-     A_RTau = 2.0_dp*A_Tau*Ha
-
 
      IF ((A_Tau .NE. A_Tau) .OR. (P_Tau .NE. P_Tau)) THEN
         nancount = nancount + 1
@@ -3662,127 +3893,31 @@ SUBROUTINE SteadyStressError_1Dtest( Model, Solver, dt, TransientSimulation)
      END IF
 
 
+     Vp = Particles % Velocity(No,1)
 
      !For RMS:
      RMSnum_Tau = RMSnum_Tau + (A_Tau-P_Tau)*(A_Tau-P_Tau)
      RMSnum_RTau = RMSnum_RTau + (A_RTau-P_RTau)*(A_RTau-P_RTau)
+     RMSnum_V = RMSnum_V + (Va-Vp)*(Va-Vp)
 
-     !For R Squared:
-     tot_P_Tau = tot_P_Tau + P_Tau
-     tot_P_RTau = tot_P_RTau + P_RTau
+     RMSnum_Tau_W   = RMSnum_Tau_W + vol1d*((A_Tau-P_Tau)*(A_Tau-P_Tau))
+     RMSdenom_Tau_W = RMSdenom_Tau_W + vol1d*A_Tau*A_Tau
 
-     !Miscellaneous
-     Particles % XPIC(No,4) = A_Tau-P_Tau
-     Particles % XPIC(No,5) = A_RTau-P_RTau
-     Particles % XPIC(No,6) = A_Tau
-     Particles % dD(No,1,1) = A_RTau
+     RMSnum_V_W   = RMSnum_V_W + vol1d*(Va-Vp)*(Va-Vp)
+     RMSdenom_V_W = RMSdenom_V_W + vol1d*Va*Va
 
-     count = count+1.0_dp
-     Particles % xpic(No,1) = 1.0_dp        
+     Vtot = Vtot + vol1d
 
+     ! IF (Particles % ShapeFunctions == 'gimpm') THEN
+     !    Particles % Strain(No,1) = ((A_Tau-P_Tau)*(A_Tau-P_Tau))/(A_Tau*A_Tau)
+     !    Particles % Strain(No,2) = ((Va-Vp)*(Va-Vp))/(Va*Va)
+     ! ENDIF
   END DO
 
-  !-----RMS-----
-  RMS_Tau = sqrt(RMSnum_Tau/count)
-  RMS_RTau = sqrt(RMSnum_RTau/count)
-
-  !-----R Squared-----
-  mean_P_Tau = tot_P_Tau/count
-  mean_P_RTau = tot_P_RTau/count
-  WHERE (Particles % xpic(:,1) == 1.0_dp)
-     Particles % xpic(:,2) = Particles % xpic(:,2)-mean_P_Tau
-     Particles % xpic(:,3) = Particles % xpic(:,3)-mean_P_RTau
-  END WHERE
-  
-  T_SS_tot = SUM(Particles % xpic(:,2)*Particles % xpic(:,2))
-  RT_SS_tot = SUM(Particles % xpic(:,3)*Particles % xpic(:,3))
-  T_SS_RES = SUM(Particles % xpic(:,4)*Particles % xpic(:,4))
-  RT_SS_RES = SUM(Particles % xpic(:,5)*Particles % xpic(:,5))
-
-  RR_T = 1.0_dp - T_SS_RES/T_SS_tot
-  RR_RT = 1.0_dp - RT_SS_RES/RT_SS_tot
-
-
-  !----Stress Error, Weighted, like Bing et al 2019 BC paper ----
-
-  W_T_E_b = 0.0_dp
-  W_RT_E_b = 0.0_dp
-  totvolT = 0.0_dp
-  totvolRT = 0.0_dp
-  nonanT = 0.0_dp
-  nonanRT = 0.0_dp
-
-  DO No = 1,Particles % NumberOfParticles
-
-     IF (Particles % xpic(No,1) .NE. 1.0_dp) CYCLE
-
-     !relative stress error at material point:     
-     IF (Particles % xpic(No,6) .NE. 0.0_dp) THEN
-        RSE_T = (ABS(Particles % xpic(No,4))/ABS(Particles % xpic(No,6)))*Particles % dD(No,1,2)
-        IF (RSE_T == RSE_T) THEN
-           W_T_E_b = W_T_E_b + RSE_T
-           totvolT = totvolT + Particles % dD(No,1,2)
-        ELSE
-           nonanT = nonanT + 1
-        END IF
-     END IF
-
-     IF (Particles % dD(No,1,1) .NE. 0.0_dp) THEN
-        RSE_RT = (ABS(Particles % xpic(No,5))/ABS(Particles % dD(No,1,1)))*Particles % dD(No,1,2)
-        IF (RSE_RT == RSE_RT) THEN
-           W_RT_E_b = W_RT_E_b + RSE_RT
-           totvolRT = totvolRT + Particles % dD(No,1,2)
-        ELSE
-           nonanRT = nonanRT + 1
-        END IF
-     END IF
-  END DO
-
-  W_T_E_b = W_T_E_b/totvolT
-  W_RT_E_b = W_RT_E_b/totvolRT
-
-
-
-  !---Stress Error, Not Weighted ----
-  !num = sum(sqrt((data-actual)**2)*vol)
-  !denom = sum(sqrt(actual**2)*vol)
-
-  !ABS( actual tau - particle tau)
-  Particles % xpic(:,4) = ABS(Particles % xpic(:,4))
-  !ABS( actual Rtau - particle Rtau)
-  Particles % xpic(:,5) = ABS(Particles % xpic(:,5))
-  !ABS( actual tau)
-  Particles % xpic(:,6) = ABS(Particles % xpic(:,6))
-  !ABS( actual RTau)
-  Particles % dD(:,1,1) = ABS(Particles % dD(:,1,1))
-
-  NW_T_E = SUM(Particles % xpic(:,4))/SUM(Particles % xpic(:,6))
-  NW_RT_E = SUM(Particles % xpic(:,6))/SUM(Particles % dD(:,1,1))
-
-
-
-  !----Stress Error,  Weighted ----
-  !ABS( actual tau - particle tau) * vol
-  Particles % xpic(:,4) = Particles % xpic(:,4) * Particles % dD(:,1,2)
-  !ABS( actual Rtau - particle Rtau) * vol
-  Particles % xpic(:,5) = Particles % xpic(:,5) * Particles % dD(:,1,2)
-  !ABS( actual tau) * vol
-  Particles % xpic(:,6) = Particles % xpic(:,6) * Particles % dD(:,1,2)
-  !ABS( actual RTau) * vol
-  Particles % dD(:,1,1) = Particles % dD(:,1,1) * Particles % dD(:,1,2)
-
-  W_T_E = SUM(Particles % xpic(:,4))/SUM(Particles % xpic(:,6))
-  W_RT_E = SUM(Particles % xpic(:,6))/SUM(Particles % dD(:,1,1))
-
-
-  Particles % xpic = 0.0_dp
-  Particles % dD = 0.0_dp
-
-
-  OPEN (10, FILE=FileName,POSITION='APPEND') 
-  WRITE (10,'(11ES19.12,3F4.1)') &
-       Particles % time, RMS_Tau, RMS_RTau, RR_T, RR_RT, NW_T_E, &
-       NW_RT_E, W_T_E, W_RT_E, W_T_E_b, W_RT_E_b,nonanT,nonanRT,nancount
+  OPEN (10, FILE=FileName,POSITION='APPEND')
+  WRITE (10,'(8ES19.12)') &
+       Particles % time, RMSnum_Tau_W,RMSdenom_Tau_W,RMSnum_V_W,RMSdenom_V_W,&
+       RMSnum_V_W_M,RMSdenom_V_W_M,Vtot
   CLOSE(10)
 
 END SUBROUTINE SteadyStressError_1Dtest
@@ -3802,7 +3937,7 @@ SUBROUTINE AdvectRiftsTest( Model,Solver,dt,TransientSimulation )
   IMPLICIT NONE
   TYPE(Solver_t), TARGET :: Solver
   TYPE(Model_t) :: Model
-  TYPE(Element_t), POINTER :: BulkElement  
+  TYPE(Element_t), POINTER :: BulkElement
   REAL(KIND=dp) :: dt, PVal, Basis(4),xt(4),SqrtElementMetric,Coord(3)
   REAL(KIND=dp) :: xnodes(4),ynodes(4),scale,xmin
   LOGICAL :: TransientSimulation
@@ -3814,10 +3949,10 @@ SUBROUTINE AdvectRiftsTest( Model,Solver,dt,TransientSimulation )
   TYPE(Valuelist_t), POINTER :: Params
   LOGICAL :: GotIt,InterpToParticles,Stat
   TYPE(Particle_t), POINTER :: Particles
-  INTEGER, POINTER :: NodeIndexes(:)    
+  INTEGER, POINTER :: NodeIndexes(:)
 
-  Particles => GlobalParticles  
-  Params => GetSolverParams()  
+  Particles => GlobalParticles
+  Params => GetSolverParams()
   Mesh => Solver % Mesh
   dim = CoordinateSystemDimension()
 
@@ -3869,7 +4004,7 @@ SUBROUTINE AdvectRiftsTest( Model,Solver,dt,TransientSimulation )
      Particles % usetracer = .TRUE.
      DO No = 1,Particles % NumberOfParticles
 
-        BulkElement => Model % Mesh % Elements(Particles % ElementIndex(No) )        
+        BulkElement => Model % Mesh % Elements(Particles % ElementIndex(No) )
         Coord = GetParticleCoord( Particles, No)
         stat = ParticleElementInfo( BulkElement, Coord, &
              SqrtElementMetric, Basis )

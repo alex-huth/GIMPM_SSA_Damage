@@ -11,7 +11,7 @@ FUNCTION initsurf(Model,nodenumber,VarIn) RESULT(VarOut)
   ELSE
      VarOut = -1.0_dp
   END IF
- 
+
 End FUNCTION initsurf
 
 FUNCTION initH(Model,nodenumber,VarIn) RESULT(VarOut)
@@ -21,17 +21,26 @@ FUNCTION initH(Model,nodenumber,VarIn) RESULT(VarOut)
   TYPE(Model_t) :: Model
   INTEGER :: nodenumber
   REAL(kind=dp) :: VarIn(1),VarOut,H0,V0,C,Q0,termA,TermB,x,gridres,H,dH
-  LOGICAL :: found  
+  LOGICAL :: found
 
   gridres = GetConstReal( Model % Constants,'Grid Resolution',Found )
   IF (.NOT. Found) CALL Fatal('USF_1dtest:', &
        'initH: Need to define "gridres = Real $" in constants')
 
-  H0 = 600.0_dp
-  v0 = 300.0_dp
+  H0 = GetConstReal( Model % Constants,'H0',Found )
+  IF (.NOT. Found) CALL Fatal('USF_1dtest:', &
+       'initH: Need to define "H0 = Real $" in constants')
+
+  v0 = GetConstReal( Model % Constants,'v0',Found )
+  IF (.NOT. Found) CALL Fatal('USF_1dtest:', &
+       'initH: Need to define "H0 = Real $" in constants')
+
+
+  !H0 = 600.0_dp
+  !v0 = 300.0_dp
 
   C = (((910.0_dp*9.81_dp/(4.0_dp*1.9E8_dp))*&
-       (1.0_dp-910.0_dp/1028.0_dp))**3.0_dp)*31556926.0_dp  
+       (1.0_dp-910.0_dp/1028.0_dp))**3.0_dp)*31556926.0_dp
   Q0 = H0*v0
 
   termA = 4.0_dp*C/Q0

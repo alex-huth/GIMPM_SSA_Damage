@@ -22,16 +22,16 @@ MODULE MPMUtils
   IMPLICIT NONE
 
   TYPE Particle_t
-     INTEGER :: Dim, NumberOfParticles=0, MaxNumberOfParticles=0,rkmsteps	
+     INTEGER :: Dim, NumberOfParticles=0, MaxNumberOfParticles=0,rkmsteps
 
      REAL(KIND=dp) :: time, dtime, nextdtime
 
      !damage stuff
-     REAL(KIND=dp) :: psr(3,3),pressure1,RHS,dvdxmdudy
+     REAL(KIND=dp) :: psr(3,3),pressure1,RHS,dvdxmdudy !, P_i, P_w
      REAL(KIND=dp) :: CurrentEVal(3),CurrentEVect(2,2)
 
      REAL(KIND=dp), POINTER :: Coordinate(:,:) => NULL()
-     REAL(KIND=dp), POINTER :: NextCoordinate(:,:) => NULL()        
+     REAL(KIND=dp), POINTER :: NextCoordinate(:,:) => NULL()
 
      INTEGER, POINTER :: Status(:) => NULL()
      INTEGER, POINTER :: ElementIndex(:) => NULL()
@@ -67,7 +67,7 @@ MODULE MPMUtils
      REAL(KIND=dp) :: simtime,firstsimtime,&
           dsyevtimepd,dsyevtimeet,generaltimepd,generaltimeet,&
           ttime1,ttime2,fpdtime,dddttime,times,timee
-#endif     
+#endif
 
 
      INTEGER :: NumberOfTemperatureLayers,buffer,&
@@ -79,34 +79,34 @@ MODULE MPMUtils
           usegiveneta,setyvelzero,usebcforprevvel,usestaticparticles,UseHBC,&
           usesavedbasis,uplag,velocitydependentfriction,coulombfriction,&
           useisodam,peig,femforallnotfull,lmod,modifiedmurakami,&
-          restrictdam,rkmcritdam,nodzz,usedavtensor,&
+          restrictdam,rkmcritdam,nodzz,forcedzz,usedavtensor,&
           fixdavdirections,nodamregion,frontmelange,noxpiconbounds,analytictest,&
           firsttimestepzero,isorift,dmaxII_dom,&
           flipvelfric,weighth,trackstrain,&
-          alwayssplitfour,savedDscale,usedamscale,FEMifGrounded,steadyalbrecht,nodaminflow,&
+          alwayssplitfour,savedDscale,usedamscale,FEMifGrounded,nodaminflow,&
           binitlowerboundfromfirsttimestep,alwaysfemfront,prupt,noevolveruptlayers,&
           outputdbassis,mix49,Usedamage,mismipmelt2,IncNumPAtStart,UseOnePPC,simpleinitdam,&
           MISMIP,useriftdmax,nospin,trackdamstrain,initriftdam,&
           hoop,unstructuredmesh,&
           initcrack,noriftbounduntilfullsep,efboundsfromfirsttimestep,&
           useriftmelange,gradualdyz,&
-          larcmelfracmod,LarCFixDavTest,LarCDamTraj,usetracer
+          larcmelfracmod,LarCFixDavTest,LarCDamTraj,usetracer,usetruecauchydamage
 
      REAL(KIND=dp) :: icrackwidth,icrackx1,icrackx2,icracky1,icracky2
 
      LOGICAL, POINTER :: UseInterpElem(:) => NULL()
-     LOGICAL, POINTER :: Static(:) => NULL()     
+     LOGICAL, POINTER :: Static(:) => NULL()
 
      REAL(KIND=dp), POINTER :: Damage(:,:,:) => NULL()
      REAL(KIND=dp), POINTER :: dD(:,:,:) => NULL()
-     REAL(KIND=dp), POINTER :: damstrain(:) => NULL()     
-     REAL(KIND=dp), POINTER :: F(:,:) => NULL()     
+     REAL(KIND=dp), POINTER :: damstrain(:) => NULL()
+     REAL(KIND=dp), POINTER :: F(:,:) => NULL()
      REAL(KIND=dp), POINTER :: Dav(:,:) => NULL()
      REAL(KIND=dp), POINTER :: GradVel(:,:) => NULL()
      REAL(KIND=dp), POINTER :: GradZs(:,:) => NULL()
-     REAL(KIND=dp), POINTER :: GradH(:,:) => NULL()     
+     REAL(KIND=dp), POINTER :: GradH(:,:) => NULL()
      REAL(KIND=dp), POINTER :: Velocity(:,:) => NULL()
-     REAL(KIND=dp), POINTER :: GridVelocity(:,:) => NULL()     
+     REAL(KIND=dp), POINTER :: GridVelocity(:,:) => NULL()
      REAL(KIND=dp), POINTER :: Length(:,:) => NULL()
      REAL(KIND=dp), POINTER :: OrigLength(:,:) => NULL()
      REAL(KIND=dp), POINTER :: Bz(:,:) => NULL()
@@ -115,7 +115,7 @@ MODULE MPMUtils
      REAL(KIND=dp), POINTER :: GMask(:) => NULL()
      REAL(KIND=dp), POINTER :: Bedrock(:) => NULL()
      REAL(KIND=dp), POINTER :: MB(:) => NULL()
-     REAL(KIND=dp), POINTER :: Binit(:) => NULL()   
+     REAL(KIND=dp), POINTER :: Binit(:) => NULL()
      REAL(KIND=dp), POINTER :: FP(:) => NULL()
      REAL(KIND=dp), POINTER :: H(:) => NULL()
      REAL(KIND=dp), POINTER :: GVolume(:) => NULL()
@@ -154,10 +154,10 @@ MODULE MPMUtils
      REAL(KIND=dp), POINTER :: ub(:)     => NULL()
      REAL(KIND=dp), POINTER :: driveforce(:,:) => NULL()
      REAL(KIND=dp), POINTER :: GradVel(:,:) => NULL()
-     REAL(KIND=dp), POINTER :: GridVelocity(:,:) => NULL() 
+     REAL(KIND=dp), POINTER :: GridVelocity(:,:) => NULL()
      REAL(KIND=dp), POINTER :: Velo(:,:)   => NULL()
      ! REAL(KIND=dp), POINTER :: falpha => NULL !not used in this version
-   
+
   END type MPforSSA_t
 
 
@@ -180,14 +180,14 @@ MODULE MPMUtils
      INTEGER :: ddlayfrombottom1
      INTEGER :: ddlayfromtop1
      INTEGER :: ddlayfrombottom2
-     INTEGER :: ddlayfromtop2  
+     INTEGER :: ddlayfromtop2
   END TYPE ElementTrack_t
 
   TYPE :: SSAHInterpolationNodes_t
      INTEGER :: NumberOfNodes
-     INTEGER, allocatable :: Node(:) 
-     INTEGER, allocatable :: ClosestParticle(:) 
-     REAL(KIND=dp), allocatable :: Distance(:)    
+     INTEGER, allocatable :: Node(:)
+     INTEGER, allocatable :: ClosestParticle(:)
+     REAL(KIND=dp), allocatable :: Distance(:)
   END TYPE SSAHInterpolationNodes_t
 
 
@@ -200,13 +200,13 @@ MODULE MPMUtils
 
 
   INTEGER, PARAMETER :: &
-       
+
        PARTICLE_ALLOCATED = 1, &
        PARTICLE_ACTIVE = 2, &
        PARTICLE_FIXEDCOORD = 3, &
        PARTICLE_LEAVING = 4, &
        PARTICLE_LOST = 5, &
-       
+
        EMPTY = 1, &
        IGNORE = 2, &
        NOTFULL = 3, &
@@ -225,8 +225,8 @@ MODULE MPMUtils
 
 CONTAINS
 
-  !> Gets the elements where the particle is located  
-  FUNCTION GetParticleElement(Particles, No) RESULT ( Index ) 
+  !> Gets the elements where the particle is located
+  FUNCTION GetParticleElement(Particles, No) RESULT ( Index )
     TYPE(Particle_t), POINTER :: Particles
     INTEGER :: No
     INTEGER :: Index
@@ -234,11 +234,11 @@ CONTAINS
     Index = Particles % ElementIndex(No)
   END FUNCTION GetParticleElement
 
-  !> Gets the Cartesian coordinates for a particle  
-  FUNCTION GetParticleCoord(Particles, No) RESULT ( Coord )    
+  !> Gets the Cartesian coordinates for a particle
+  FUNCTION GetParticleCoord(Particles, No) RESULT ( Coord )
     TYPE(Particle_t), POINTER :: Particles
     INTEGER :: No
-    REAL(KIND=dp) :: Coord(3) 
+    REAL(KIND=dp) :: Coord(3)
     INTEGER :: dim
 
     Coord(3) = 0.0_dp
@@ -251,7 +251,7 @@ CONTAINS
   !> Gets the Status for a particle
   !! 1. PARTICLE_ALLOCATED; 2. PARTICLE_ACTIVE; 3. PARTICLE_FIXEDCOORD
   !! 4. PARTICLE_LEAVING; 5. PARTICLE_LOST
-  FUNCTION GetParticleStatus(Particles,No) RESULT ( Status )   
+  FUNCTION GetParticleStatus(Particles,No) RESULT ( Status )
     TYPE(Particle_t), POINTER :: Particles
     INTEGER :: No
     INTEGER :: Status
@@ -289,7 +289,7 @@ CONTAINS
   FUNCTION GetParticleVolumeInElement(Particles,No,Element,Model) RESULT (Volume)
     TYPE(Particle_t), POINTER :: Particles
     TYPE(Element_t), POINTER :: Element
-    TYPE(Model_t) :: Model       
+    TYPE(Model_t) :: Model
     INTEGER, POINTER :: NodeIndexes(:)
     INTEGER :: No,nn
     REAL(KIND=dp) :: Volume,Coord(3),xmin,xmax,ymin,ymax,LX,LY,N,S,E,W
@@ -339,10 +339,10 @@ CONTAINS
     IMPLICIT NONE
     TYPE(Particle_t), POINTER :: Particles
     TYPE(Model_t) :: Model
-    TYPE(Nodes_t) :: Nodes    
+    TYPE(Nodes_t) :: Nodes
     REAL(KIND=dp) :: Basis(4),dBasisdx(4,3),Sv(4,2),dSv(4,2),diff(4,2)
     REAL(KIND=dp) :: one=1.0_dp,two = 2.0_dp,coord(2)
-    REAL(KIND=dp) :: h,oogr,e,n,half=0.5_dp,midx,midy 
+    REAL(KIND=dp) :: h,oogr,e,n,half=0.5_dp,midx,midy
     LOGICAL :: Stat
 
     diff(:,1) = coord(1) - Nodes % x
@@ -352,7 +352,7 @@ CONTAINS
     dSv = -sign( dSv,diff);
 
     midx = MINVAL(Nodes % x) + half*h
-    midy = MINVAL(Nodes % y) + half*h    
+    midy = MINVAL(Nodes % y) + half*h
 
     oogr = two/h
     e = oogr*(coord(1)-midx)
@@ -396,10 +396,10 @@ CONTAINS
     TYPE(Particle_t), POINTER :: Particles
     TYPE(Element_t), POINTER :: Element
     TYPE(Model_t) :: Model
-    TYPE(Nodes_t) :: Nodes    
+    TYPE(Nodes_t) :: Nodes
     INTEGER :: No
     REAL(KIND=dp) :: Basis(4),dBasisdx(4,3),ddBasisddx(4,3,3),Sv(4,2),dSv(4,2),diff(4,2)
-    REAL(KIND=dp) :: one=1.0_dp,two = 2.0_dp,half=0.5_dp 
+    REAL(KIND=dp) :: one=1.0_dp,two = 2.0_dp,half=0.5_dp
     REAL(KIND=dp) :: h,oogr,e,n,midx,midy,detj,Coord(3)
     LOGICAL :: Stat,Visited=.FALSE.
     TYPE(GaussIntegrationPoints_t) :: IP
@@ -417,13 +417,13 @@ CONTAINS
           Visited = .TRUE.
        END IF
 
-       IP = GaussPoints( Element , np=INT(Particles % elementfraction) )       
+       IP = GaussPoints( Element , np=INT(Particles % elementfraction) )
        stat = ElementInfo( Element, Nodes, IP % U(t), IP % V(t), &
             IP % W(t),  detJ, Basis, dBasisdx, ddBasisddx, .FALSE. )
 
        t = t+1
 
-       IF (t>Particles % elementfraction) t = 1       
+       IF (t>Particles % elementfraction) t = 1
        RETURN
     END IF
 
@@ -436,7 +436,7 @@ CONTAINS
        ddBasisddx = 0.0_dp
 
        RETURN
-    END IF    
+    END IF
 
     diff(:,1) = Particles % Coordinate(No,1) - Nodes % x
     diff(:,2) = Particles % Coordinate(No,2) - Nodes % y
@@ -445,7 +445,7 @@ CONTAINS
     dSv = -sign( dSv,diff)
 
     midx = MINVAL(Nodes % x) + half*h
-    midy = MINVAL(Nodes % y) + half*h    
+    midy = MINVAL(Nodes % y) + half*h
 
     oogr = two/h
     e = oogr*(Particles % Coordinate(No,1)-midx)
@@ -463,7 +463,7 @@ CONTAINS
        Sv(:,2) = one+n
     END WHERE
 
-    Sv = Sv*half    
+    Sv = Sv*half
 
     WHERE(ABS(Sv)>one) dSv = -dSv
 
@@ -483,7 +483,7 @@ CONTAINS
     IMPLICIT NONE
     TYPE(Particle_t), POINTER :: Particles
     TYPE(Model_t) :: Model
-    TYPE(Nodes_t) :: Nodes    
+    TYPE(Nodes_t) :: Nodes
     INTEGER :: No,j,k,iter
     REAL(KIND=dp) :: Basis(4),dBasisdx(4,3),Sv(4,2),dSv(4,2),diff(4,2)
     REAL(KIND=dp), DIMENSION (2) :: t1,t2,t3,t4,t5,t6,lp
@@ -496,12 +496,12 @@ CONTAINS
 
     lp = 0.5_dp * Particles % Length(No,1:2)
 
-    t1 = -h - lp 
-    t2 = -h + lp 
-    t3 = -lp 
-    t4 = lp 
-    t5 = h - lp 
-    t6 = h + lp 
+    t1 = -h - lp
+    t2 = -h + lp
+    t3 = -lp
+    t4 = lp
+    t5 = h - lp
+    t6 = h + lp
 
     Sv = 0.0_dp
     dSv = 0.0_dp
@@ -510,7 +510,7 @@ CONTAINS
     diff(:,2) = Particles % Coordinate(No,2) - Nodes % y
 
 
-    DO j = 1,2       
+    DO j = 1,2
        DO k = 1,4
 
           !basis
@@ -553,7 +553,7 @@ CONTAINS
     TYPE(Element_t), TARGET :: Element
     TYPE(Element_t), POINTER :: PointElement
     TYPE(Nodes_t), OPTIONAL   :: Nodes
-    REAL(KIND=dp) :: detj 
+    REAL(KIND=dp) :: detj
     REAL(KIND=dp) :: Basis(4),pg(2),nx(4),ny(4), &
          pl(2),Lg(2),Ll(2),E1(2),E2(2),Sa(2),Sb(2),dSa(2),dSb(2)
     REAL(KIND=dp) :: weight,nxmax,nxmin,nymax,nymin,Sx,dSx,Sy,dSy,&
@@ -588,7 +588,7 @@ CONTAINS
        Basis(:) = 0.0_dp
        dBasisdx(:,:) = 0.0_dp
 
-       nn = Element % Type % NumberOfNodes    
+       nn = Element % Type % NumberOfNodes
        NodeIndexes => Element % NodeIndexes
 
        nx(1:nn) = Model % Mesh % Nodes % x(NodeIndexes)
@@ -609,7 +609,7 @@ CONTAINS
        Lg(1) = Particles % Length(No,1)
        Lg(2) = Particles % Length(No,2)
 
-       scale = 1.0_dp    
+       scale = 1.0_dp
 
        IF (calcscale) THEN
           IF (Particles % Status(No) >= PARTICLE_LEAVING) THEN
@@ -627,7 +627,7 @@ CONTAINS
              N = Particles % Coordinate(No,2) + Particles % Length(No,2)/2.0_dp
              S = Particles % Coordinate(No,2) - Particles % Length(No,2)/2.0_dp
              E = Particles % Coordinate(No,1) + Particles % Length(No,1)/2.0_dp
-             W = Particles % Coordinate(No,1) - Particles % Length(No,1)/2.0_dp 
+             W = Particles % Coordinate(No,1) - Particles % Length(No,1)/2.0_dp
 
              IF (nxmax < pg(1)) THEN
                 !  rc(2) = 1
@@ -703,7 +703,7 @@ CONTAINS
 
           IF ( PRESENT(dBasisdx) ) THEN
              dSa(k) = ( E1(k) - E2(k) ) / ( 2.0_dp * Lg(k) )
-             dSb(k) = ( E2(k) - E1(k) ) / ( 2.0_dp * Lg(k) )       
+             dSb(k) = ( E2(k) - E1(k) ) / ( 2.0_dp * Lg(k) )
           END IF
        END DO
 
@@ -741,7 +741,7 @@ CONTAINS
 
   !**************************************************************************
 
-  !> linspace function (as in MATLAB) 
+  !> linspace function (as in MATLAB)
   SUBROUTINE linspace(from, to, array)
     REAL(KIND=dp), intent(in) :: from, to
     REAL(KIND=dp), intent(out) :: array(:)
@@ -769,7 +769,7 @@ CONTAINS
   !! Defines some global particle constants so that we can keep things clean and
   !! avoid calling them for multiple subroutines
   !! CAUTION: Some of these global parameters may no longer be actively used
-  SUBROUTINE SetMPMParticlePreliminaries(Particles,Model,dim) 
+  SUBROUTINE SetMPMParticlePreliminaries(Particles,Model,dim)
 
     IMPLICIT NONE
     TYPE(Model_t) :: Model
@@ -779,7 +779,7 @@ CONTAINS
     REAL(KIND=dp) :: MinCoord(3), MaxCoord(3), s(3)
     INTEGER :: ierr
     LOGICAL :: GotIt
-    CHARACTER(LEN=MAX_NAME_LEN) :: SolverName  
+    CHARACTER(LEN=MAX_NAME_LEN) :: SolverName
 
     WRITE(SolverName, '(A)') 'InitializeParticles: SetParticlePreliminaries'
 
@@ -798,7 +798,7 @@ CONTAINS
        Particles % dim = Mesh % Meshdim
     END IF
 
-    ! Create list of faces / edges 
+    ! Create list of faces / edges
     !Mesh => GetMesh()
     CALL FindMeshEdges( Mesh, .FALSE.)
     IF ( ParEnv % PEs > 1 ) THEN
@@ -813,12 +813,12 @@ CONTAINS
     PRINT *,''
     PRINT *,''
     PRINT *,''
-    PRINT *,''    
+    PRINT *,''
     PRINT *,'SHAPE FUNCTIONS: ',Particles % ShapeFunctions
     PRINT *,''
     PRINT *,''
     PRINT *,''
-    PRINT *,''    
+    PRINT *,''
 
 
     Particles % DamageModel = ListGetString( Model % Constants,'Damage Model',GotIt )
@@ -873,6 +873,7 @@ CONTAINS
     ELSE
        Particles % trackstrain = .TRUE.
     END IF
+    !Particles % trackstrain = .TRUE.
 
     Particles % usetracer = GetLogical( Model % Constants, &
          'Use Tracer', GotIt )
@@ -880,7 +881,7 @@ CONTAINS
        CALL Warn(SolverName, &
             'Use Tracer not defined, assume false!')
        Particles % usetracer = .FALSE.
-    END IF    
+    END IF
 
 
     Particles % alwayssplitfour = .FALSE.
@@ -927,7 +928,7 @@ CONTAINS
 
     Particles % k2 = GetConstReal( Model % Constants, 'k2', GotIt )
     IF (.NOT. GotIt) CALL Fatal(SolverName,&
-         'Need to define "k2=Real $" in constants')    
+         'Need to define "k2=Real $" in constants')
 
     Particles % gamma = GetConstReal( Model % Constants, 'gamma', GotIt )
     IF (.NOT. GotIt) CALL Fatal(SolverName,&
@@ -1041,16 +1042,24 @@ CONTAINS
        Particles % noDzz = .FALSE.
     END IF
 
+    Particles % forceDzz = GetLogical( Model % Constants, &
+         'Force Dzz', GotIt )
+    IF (.NOT. GotIt) THEN
+       CALL Warn(SolverName, &
+            'Force Dzz not defined, assume false!')
+       Particles % forceDzz = .FALSE.
+    END IF
+
     Particles % unstructuredmesh = GetLogical( Model % Constants, 'Unstructured mesh',GotIt)
     IF (.NOT. GotIt) Particles % unstructuredmesh = .FALSE.
-    
+
     Particles % hoop = GetLogical( Model % Constants, 'hoop', GotIt )
     IF (.NOT. GotIt) Particles % hoop = .FALSE.
 
     IF (Particles % hoop) THEN
        Particles % unstructuredmesh = .TRUE.
     END IF
-    
+
 
     Particles % nospin = GetLogical( Model % Constants, 'no damage spin', GotIt )
     IF (.NOT. GotIt) Particles % nospin = .FALSE.
@@ -1184,7 +1193,7 @@ CONTAINS
 
     IF (Particles % shapefunctions .NE. 'gimpm') THEN
        CALL Warn(SolverName,'Saved basis only works with gimpm, setting false!!')
-       Particles % usesavedbasis = .FALSE.       
+       Particles % usesavedbasis = .FALSE.
     END IF
 
     Particles % uplag = .FALSE.
@@ -1218,7 +1227,7 @@ CONTAINS
     IF (Particles % useisodam) THEN
        Particles % initDmax  = GetConstReal( Model % Constants, 'Iso Max Damage', GotIt )
        IF (.NOT. GotIt) CALL Fatal(SolverName,&
-            'If using Iso dam Need to define "Iso Max Damage=Real $" in constants')       
+            'If using Iso dam Need to define "Iso Max Damage=Real $" in constants')
     END IF
 
 
@@ -1256,7 +1265,15 @@ CONTAINS
     IF (.NOT. GotIt) THEN
        CALL Warn(SolverName, &
             'Use Modified Murakami not found, assume false!')
-       Particles % modifiedmurakami = .False. 
+       Particles % modifiedmurakami = .False.
+    END IF
+
+    Particles % usetruecauchydamage = GetLogical( Model % Constants, &
+         'Use True Cauchy Damage', GotIt )
+    IF (.NOT. GotIt) THEN
+       CALL Warn(SolverName, &
+            'Use True Cauchy Damage not found, assume false!')
+       Particles % usetruecauchydamage = .False.
     END IF
 
 
@@ -1346,14 +1363,14 @@ CONTAINS
             'Need to define "icrack y2=Real $" in constants')
 
        Particles % bcracklayers = GetInteger( Model % Constants, &
-            'basalcrack layers', GotIt )     
+            'basalcrack layers', GotIt )
        IF (.NOT. GotIt) CALL Fatal(SolverName, &
             'Need to define "Number of basalcrack Layers = Integer $" in constants')
 
        Particles % dbcracklayers = GetInteger( Model % Constants, &
-            'diffuse basalcrack layers', GotIt )     
+            'diffuse basalcrack layers', GotIt )
        IF (.NOT. GotIt) CALL Fatal(SolverName, &
-            'Need to define "Number of diffuse basalcrack Layers = Integer $" in constants')    
+            'Need to define "Number of diffuse basalcrack Layers = Integer $" in constants')
 
     END IF
 
@@ -1379,7 +1396,7 @@ CONTAINS
     END IF
 
     !dont allow EF (the mesh-based enhancement factor) on a particle decrease
-    !below what existed at the first timestep    
+    !below what existed at the first timestep
     Particles % efboundsfromfirsttimestep = GetLogical( Model % Constants, &
          'EF bounds from First Timestep', GotIt )
     IF (.NOT. GotIt) THEN
@@ -1443,13 +1460,13 @@ CONTAINS
 
 
     Particles % NumberOfTemperatureLayers = GetInteger( Model % Constants, &
-         'Number of Temperature Layers', GotIt )     
+         'Number of Temperature Layers', GotIt )
     IF (.NOT. GotIt) CALL Fatal(SolverName, &
          'Need to define "Number of Temperature Layers = Real $" in constants')
 
 
     Particles % NumberOfParticleLayers = GetInteger( Model % Constants, &
-         'Number of Particle Layers', GotIt )     
+         'Number of Particle Layers', GotIt )
     IF (.NOT. GotIt) CALL Fatal(SolverName, &
          'Need to define "Number of Particle Layers = Real $" in constants')
 
@@ -1458,7 +1475,7 @@ CONTAINS
        CALL Warn(Solvername,&
             'Automatically increasing number of particle layers to 8, as required')
     END IF
-    
+
 
     IF (Particles % DamageModel == 'zero stress') THEN
        Particles % NumberOfParticleLayers = Particles % NumberOfTemperatureLayers
@@ -1505,7 +1522,7 @@ CONTAINS
     Particles % maxGLlength = GetConstReal( Model % Constants, &
          'Maximum Grounding Line Particle Length', GotIt )
     IF (.NOT. GotIt) CALL Fatal(SolverName, &
-         'Need to define "Maximum Grounding Line Particle Length = Real $" in constants')    
+         'Need to define "Maximum Grounding Line Particle Length = Real $" in constants')
 
     Particles % davsplitthres = GetConstReal( Model % Constants, 'Dav Split Threshold', GotIt )
     IF (.NOT. GotIt) CALL Fatal(SolverName, &
@@ -1513,7 +1530,7 @@ CONTAINS
 
 
     Particles % buffer = GetInteger( Model % Constants, 'Number of Buffer Particles', GotIt )
-    IF (.NOT. GotIt) Particles % buffer = 0      
+    IF (.NOT. GotIt) Particles % buffer = 0
 
 
     Particles % DInitTolerance = GetConstReal( Model % Constants, 'Dinit Tolerance', GotIt )
@@ -1593,26 +1610,26 @@ CONTAINS
     IF (.NOT. GotIt) THEN
        CALL Warn(SolverName,&
             'Did not specify "Use SEP = Logical" in constants, so assuming false!!')
-       Particles % SEP = .FALSE.       
+       Particles % SEP = .FALSE.
     END IF
 
     Particles % SimpleAdvectTest = GetLogical( Model % Constants, 'SimpleAdvectTest', GotIt)
     IF (.NOT. GotIt) THEN
        CALL Warn(SolverName,&
             'Did not specify "SimmpleAdvectTest = Logical" in constants, so assuming false!!')
-       Particles % SimpleAdvectTest = .FALSE.       
+       Particles % SimpleAdvectTest = .FALSE.
     END IF
 
     Particles % IncNumPAtStart = GetLogical( Model % Constants, &
          'Increase Number Of Particles At Start', GotIt)
     IF (.NOT. GotIt) THEN
-       Particles % IncNumPAtStart = .TRUE.       
+       Particles % IncNumPAtStart = .TRUE.
     END IF
 
     Particles % UseOnePPC = GetLogical( Model % Constants, &
          'Use One PPC Edit', GotIt)
     IF (.NOT. GotIt) THEN
-       Particles % UseOnePPC = .False.       
+       Particles % UseOnePPC = .False.
     END IF
 
 
@@ -1639,7 +1656,7 @@ CONTAINS
     INTEGER, OPTIONAL :: InitParticles
     LOGICAL, OPTIONAL :: AppendParticles
     TYPE(Model_t) :: Model
-    TYPE(ValueList_t), POINTER :: Params, BodyForce 
+    TYPE(ValueList_t), POINTER :: Params, BodyForce
     TYPE(Variable_t), POINTER :: Var
     TYPE(Element_t), POINTER :: CurrentElement,Element
     TYPE(Mesh_t), POINTER :: Mesh
@@ -1728,7 +1745,7 @@ CONTAINS
     END IF
 
     ! Now decide on the number of particles.
-    !-------------------------------------------------------------------------  
+    !-------------------------------------------------------------------------
 
     frac = Particles % elementfraction
 
@@ -1759,7 +1776,7 @@ CONTAINS
 
 
     ! If there are no particles in this partition, nothing to do
-    !------------------------------------------------------------------------- 
+    !-------------------------------------------------------------------------
     IF( NewParticles == 0 ) RETURN
 
     IF (Particles % IncNumPAtStart) THEN
@@ -1874,7 +1891,7 @@ CONTAINS
              Nodes % z(1:n) = 0.0_dp
 
              stat = sMPMElementInfo( CurrentElement, Particles, Model, Nodes, No, &
-                  Particles % gridres, Basis,dBasisdx)               
+                  Particles % gridres, Basis,dBasisdx)
              CALL GetScalarFieldInMesh(GridH, CurrentElement, Basis, H)
 
              Particles % H(No) = H
@@ -1891,7 +1908,7 @@ CONTAINS
           Particles % F(No,1) = 1.0_dp
           Particles % F(No,2) = 1.0_dp
           Particles % ElementIndex(No) = ElementInd
-          Particles % InterpElem(No) = ElementInd         
+          Particles % InterpElem(No) = ElementInd
 
        END DO
 
@@ -1901,14 +1918,14 @@ CONTAINS
        END IF
 
        PRINT *,'number of particles after start', No-1
-       
+
        RETURN
     END IF
-    
-    ! Allocate particles
-    !-------------------------------------------------------------------------    
 
-    CALL AllocateParticles( Particles, Model, LastParticle )    
+    ! Allocate particles
+    !-------------------------------------------------------------------------
+
+    CALL AllocateParticles( Particles, Model, LastParticle )
 
     Particles % NumberOfParticles = LastParticle
 
@@ -1988,19 +2005,19 @@ CONTAINS
                    xmove = -loc
                 ELSE IF (ii == 5) THEN
                    ymove = 0.0_dp
-                   xmove = 0.0_dp 
+                   xmove = 0.0_dp
                 ELSE IF (ii==6)  THEN
                    ymove = 0.0_dp
-                   xmove = loc 
+                   xmove = loc
                 ELSE IF (ii==7) THEN
                    ymove = -loc
-                   xmove = -loc 
+                   xmove = -loc
                 ELSE IF (ii==8) THEN
                    ymove = -loc
-                   xmove = 0.0_dp 
+                   xmove = 0.0_dp
                 ELSE IF (ii==9) THEN
                    ymove = -loc
-                   xmove = loc                
+                   xmove = loc
                 END IF
 
                 IF( j > Mesh % NumberOfBulkElements ) THEN
@@ -2064,7 +2081,7 @@ CONTAINS
 
                 IF (ANY(Mesh % Nodes % x(NodeIndexes(1:n))<Particles % OnePPCXEnd)) THEN
                    k = k + 1
-                   Coordinate(k,1) = SUM( Mesh % Nodes % x(NodeIndexes ) ) / n 
+                   Coordinate(k,1) = SUM( Mesh % Nodes % x(NodeIndexes ) ) / n
                    Coordinate(k,2) = SUM( Mesh % Nodes % y(NodeIndexes ) ) / n
                    IF( dim == 3 ) Coordinate(k,3) = SUM( Mesh % Nodes % z(NodeIndexes ) ) / n
                    IF( j <= Mesh % NumberOfBulkElements ) THEN
@@ -2128,11 +2145,11 @@ CONTAINS
                    NodeIndexes =>  CurrentElement % NodeIndexes
                    n = CurrentElement % TYPE % NumberOfNodes
                    Coordinate(k,1) = SUM( Mesh % Nodes % x(NodeIndexes ) ) / n + xmove + gridres
-                   Coordinate(k,2) = SUM( Mesh % Nodes % y(NodeIndexes ) ) / n + ymove 
+                   Coordinate(k,2) = SUM( Mesh % Nodes % y(NodeIndexes ) ) / n + ymove
                    IF( dim == 3 ) Coordinate(k,3) = SUM( Mesh % Nodes % z(NodeIndexes ) ) / n
                 END DO
 
-                Coordinate(:,1) = Coordinate(:,1) - loc  
+                Coordinate(:,1) = Coordinate(:,1) - loc
              END IF
           END DO
 
@@ -2176,7 +2193,7 @@ CONTAINS
                    xmove = 0.0_dp -stag
                 ELSE IF (ii==9) THEN
                    ymove = -loc
-                   xmove = loc -stag                
+                   xmove = loc -stag
                 END IF
 
                 IF( j > Mesh % NumberOfBulkElements ) THEN
@@ -2218,11 +2235,11 @@ CONTAINS
                    NodeIndexes =>  CurrentElement % NodeIndexes
                    n = CurrentElement % TYPE % NumberOfNodes
                    Coordinate(k,1) = SUM( Mesh % Nodes % x(NodeIndexes ) ) / n + xmove + gridres
-                   Coordinate(k,2) = SUM( Mesh % Nodes % y(NodeIndexes ) ) / n + ymove 
+                   Coordinate(k,2) = SUM( Mesh % Nodes % y(NodeIndexes ) ) / n + ymove
                    IF( dim == 3 ) Coordinate(k,3) = SUM( Mesh % Nodes % z(NodeIndexes ) ) / n
                 END DO
 
-                Coordinate(:,1) = Coordinate(:,1) - loc  
+                Coordinate(:,1) = Coordinate(:,1) - loc
              END IF
           END DO
 
@@ -2288,7 +2305,7 @@ CONTAINS
                    xmove = loc4
                 ELSE IF (ii==16) THEN
                    ymove = loc4
-                   xmove = loc4                  
+                   xmove = loc4
                 END IF
 
                 IF( j > Mesh % NumberOfBulkElements ) THEN
@@ -2329,7 +2346,7 @@ CONTAINS
   !>MakeInterpLayers holds the interpolation map and functions to
   !!interpolate between the temperature layers
   !!(e.g. variable Temperature with dofs = # temperature layers)
-  !!particle layers (# of particles layers is specified in constants). 
+  !!particle layers (# of particles layers is specified in constants).
   !!InterpLayers % Map(particlelayer,1) and InterpLayers % Map(particlelayer,2) give the
   !!two temperature layers that a particle layers lies between.
   !!InterpLayers % InterpFun(particlelayer,1) and InterpLayers % InterpFun(particlelayer,2)
@@ -2339,13 +2356,13 @@ CONTAINS
 
     IMPLICIT NONE
     TYPE(Particle_t), POINTER :: Particles
-    TYPE(Model_t) :: Model    
+    TYPE(Model_t) :: Model
     INTEGER :: numoflayers1,numoflayers2,H1,H2,ii,jj,I
     REAL(KIND = dp), POINTER :: x1(:),x2(:),z1(:),z2(:),interp1(:),interp2(:)
     REAL(KIND = dp) :: H,intsize1,intsize2
     INTEGER, POINTER :: L1(:),L2(:)
     LOGICAL :: GotIt
-    CHARACTER(LEN=MAX_NAME_LEN) :: SolverName    
+    CHARACTER(LEN=MAX_NAME_LEN) :: SolverName
 
     WRITE(SolverName, '(A)') 'MakeInterpLayers'
 
@@ -2365,7 +2382,7 @@ CONTAINS
     z1 = intsize1*(DBLE(x1)-1.0_dp)
 
     !spacing 2 (damage)
-    ALLOCATE(x2(numoflayers2),z2(numoflayers2))          
+    ALLOCATE(x2(numoflayers2),z2(numoflayers2))
 
     H2 = numoflayers2-1
 
@@ -2375,7 +2392,7 @@ CONTAINS
 
     !interpolation vars
     ALLOCATE(interp1(numoflayers2),interp2(numoflayers2))
-    ALLOCATE(L1(numoflayers2),L2(numoflayers2))          
+    ALLOCATE(L1(numoflayers2),L2(numoflayers2))
 
     DO ii = 1,numoflayers2
        DO jj = 2,numoflayers1
@@ -2393,7 +2410,7 @@ CONTAINS
     END DO
 
     InterpLayers % NumOfTLayers = numoflayers1
-    InterpLayers % NumOfDLayers = numoflayers2         
+    InterpLayers % NumOfDLayers = numoflayers2
 
     ALLOCATE(InterpLayers % Map(numoflayers2,2), InterpLayers % InterpFun(numoflayers2,2))
 
@@ -2404,15 +2421,15 @@ CONTAINS
     PRINT *,'max map1',MAXVAL(InterpLayers % Map(:,1))
 
     PRINT *,'min map2',MINVAL(InterpLayers % Map(:,2))
-    PRINT *,'max map2',MAXVAL(InterpLayers % Map(:,2))    
+    PRINT *,'max map2',MAXVAL(InterpLayers % Map(:,2))
 
     InterpLayers % InterpFun(:,1) = interp1
     InterpLayers % InterpFun(:,2) = interp2
 
     DEALLOCATE(x1,z1)
-    DEALLOCATE(x2,z2)          
+    DEALLOCATE(x2,z2)
     DEALLOCATE(interp1,interp2)
-    DEALLOCATE(L1,L2)  
+    DEALLOCATE(L1,L2)
 
   END SUBROUTINE MakeInterpLayers
 
@@ -2428,7 +2445,7 @@ CONTAINS
     IMPLICIT NONE
     TYPE(Particle_t), POINTER :: Particles
     TYPE(Solver_t), TARGET :: Solver
-    TYPE(Nodes_t)   :: ElementNodes    
+    TYPE(Nodes_t)   :: ElementNodes
     TYPE(Model_t) :: Model
     TYPE(Element_t), POINTER :: BulkElement
     TYPE(Mesh_t), POINTER :: Mesh
@@ -2449,8 +2466,8 @@ CONTAINS
          fricparam,efparam,mbparam,sealevel,Hf,static,dscale,LarCRiftWidth
     REAL(KIND=dp) :: EigenVec(2,2),EigVals(2),strainrate(2,2),ww,xx,yy,zz,en
     LOGICAL :: Stat,GotIt,LarC,NoInitDam,LarCDamTraj,noprevdamatrift,&
-         ConstantMB,ConstantEF,ConstantFric,testfedit,testpass,bumptest
-    REAL(KIND=dp) :: xbump,hbump,abump,bbump,cbump,ge    
+         ConstantMB,ConstantEF,ConstantFric,testfedit,testpass,bumptest,test1d
+    REAL(KIND=dp) :: xbump,hbump,abump,bbump,cbump,ge
     CHARACTER(LEN=MAX_NAME_LEN) :: VariableName,SolverName
     REAL(KIND=dp) :: cm,eta,Exx,Eyy,Ezz,Exy,Ee,Tau(3,3),tp,TT,DD,Q,Qw,dw,hab,dtot,ds,db
 
@@ -2458,12 +2475,18 @@ CONTAINS
     LOGICAL :: damrift,isodamatrift,pir
     REAL(KIND=dp) :: dsave,cslope,ang,DDD(2,2),rot(2,2)
 
+    INTEGER :: i
+    REAL(KIND=dp) :: dirichletmax
+    TYPE(Variable_t), POINTER :: GH,GHi,GVel1,GVel1i
+    REAL(KIND=dp), POINTER :: GHVal(:),GHiVal(:),GVel1Val(:),GVel1iVal(:)
+    INTEGER, POINTER :: GHPerm(:),GHiPerm(:),GVel1Perm(:),GVel1iPerm(:)
+
 
     Params => GetSolverParams()
     Mesh => GetMesh()
     n = Mesh % MaxElementNodes
 
-    WRITE(SolverName, '(A)') 'InitParticleVars'    
+    WRITE(SolverName, '(A)') 'InitParticleVars'
 
     ALLOCATE(ElementNodes % x(n),ElementNodes % y(n),ElementNodes % z(n))
 
@@ -2472,11 +2495,11 @@ CONTAINS
        CriticalDamage = Particles % isodamcritdam
        !initDmax
        CriticalDav = Particles % isodamcritdav
-       !initDmax       
+       !initDmax
     ELSE
        Dmax  = Particles % DmaxI
        CriticalDamage = Particles % CriticalDamage
-       CriticalDav = Particles % CriticalDav          
+       CriticalDav = Particles % CriticalDav
     END IF
 
 
@@ -2538,6 +2561,12 @@ CONTAINS
        Particles % initriftdam = .FALSE.
     END IF
 
+    test1d = GetLogical( Params,'Test1d',GotIt)
+    IF (.NOT. GotIt) THEN
+       Call Warn(SolverName,&
+            'Did not specify "Test1d = Logical" in Params, so assuming false!!')
+       test1d = .FALSE.
+    END IF
 
     testpass = GetLogical( Params,'Test Pass',GotIt)
     IF (.NOT. GotIt) THEN
@@ -2565,7 +2594,7 @@ CONTAINS
        IF( GotIt ) THEN
           GridStatic => VariableGet( Mesh % Variables, TRIM(VariableName) )
           IF(.NOT. ASSOCIATED( GridStatic ) ) THEN
-             CALL Fatal(SolverName,'Static Particle variable does not exist: '//TRIM(VariableName))         
+             CALL Fatal(SolverName,'Static Particle variable does not exist: '//TRIM(VariableName))
           END IF
        END IF
        IF (.NOT. GotIt) CALL Fatal(SolverName, &
@@ -2577,7 +2606,7 @@ CONTAINS
     IF( GotIt ) THEN
        GridInvVisc => VariableGet( Mesh % Variables, TRIM(VariableName) )
        IF(.NOT. ASSOCIATED( GridInvVisc ) ) THEN
-          CALL Fatal(SolverName,'InvVisc variable does not exist: '//TRIM(VariableName))         
+          CALL Fatal(SolverName,'InvVisc variable does not exist: '//TRIM(VariableName))
        END IF
     END IF
     IF (.NOT. GotIt) CALL Fatal(SolverName, &
@@ -2605,7 +2634,7 @@ CONTAINS
        GridH => VariableGet( Mesh % Variables, TRIM(VariableName) )
        IF(.NOT. ASSOCIATED( GridH ) ) THEN
           CALL Fatal(SolverName, &
-               'Thickness variable does not exist: '//TRIM(VariableName))           
+               'Thickness variable does not exist: '//TRIM(VariableName))
        END IF
     END IF
     IF (.NOT. GotIt) CALL Fatal(SolverName, &
@@ -2618,7 +2647,7 @@ CONTAINS
           GridFP => VariableGet( Mesh % Variables, TRIM(VariableName) )
           IF(.NOT. ASSOCIATED( GridFP ) ) THEN
              CALL Fatal(SolverName, &
-                  'Friction Parameter does not exist: '//TRIM(VariableName))           
+                  'Friction Parameter does not exist: '//TRIM(VariableName))
           END IF
        END IF
        IF (.NOT. GotIt) CALL Fatal(SolverName, &
@@ -2631,7 +2660,7 @@ CONTAINS
        GridZs => VariableGet( Mesh % Variables, TRIM(VariableName) )
        IF(.NOT. ASSOCIATED( GridZs ) ) THEN
           CALL Fatal(SolverName, &
-               'Surface Height Variable does not exist: '//TRIM(VariableName))           
+               'Surface Height Variable does not exist: '//TRIM(VariableName))
        END IF
     END IF
     IF (.NOT. GotIt) CALL Fatal(SolverName, &
@@ -2643,7 +2672,7 @@ CONTAINS
        GridDMask => VariableGet( Mesh % Variables, TRIM(VariableName) )
        IF(.NOT. ASSOCIATED( GridDMask ) ) THEN
           CALL Fatal(SolverName, &
-               'Damage Mask Variable does not exist: '//TRIM(VariableName))           
+               'Damage Mask Variable does not exist: '//TRIM(VariableName))
        END IF
     END IF
     IF (.NOT. GotIt) CALL Fatal(SolverName, &
@@ -2656,7 +2685,7 @@ CONTAINS
           GridEF => VariableGet( Mesh % Variables, TRIM(VariableName) )
           IF(.NOT. ASSOCIATED( GridEF ) ) THEN
              CALL Fatal(SolverName, &
-                  'EF Variable does not exist: '//TRIM(VariableName))           
+                  'EF Variable does not exist: '//TRIM(VariableName))
           END IF
        END IF
        IF (.NOT. GotIt) CALL Fatal(SolverName, &
@@ -2665,8 +2694,28 @@ CONTAINS
 
     VariableName = ListGetString(Params,'Bedrock Variable Name',GotIt)
     IF( GotIt ) THEN
-       GridBed => VariableGet( Mesh % Variables, TRIM(VariableName) )          
+       GridBed => VariableGet( Mesh % Variables, TRIM(VariableName) )
     END IF
+
+    IF (test1d) THEN
+        GHi => VariableGet(Model % Mesh % Variables, 'Hinit' )
+        GHiPerm => GHi % Perm
+        GHiVal => GHi % Values
+
+        GVel1i => VariableGet(Model % Mesh % Variables, 'InitVel 1' )
+        GVel1iPerm => GVel1i % Perm
+        GVel1iVal => GVel1i % Values
+
+        GVel1 => VariableGet(Model % Mesh % Variables, 'SSAVelocity 1' )
+        GVel1Perm => GVel1 % Perm
+        GVel1Val => GVel1 % Values
+
+        GH => VariableGet(Model % Mesh % Variables, 'H' )
+        GHPerm => GH % Perm
+        GHVal => GH % Values
+
+        dirichletmax = GetConstReal(Solver % Values,'dirichlet max x',GotIt)
+    ENDIF
 
 
 
@@ -2712,7 +2761,7 @@ CONTAINS
           ELSE IF (frac == 9.0_dp) THEN
              Particles % Length(:,:) = gridres/3.0_dp
           ELSE IF (frac == 16.0_dp) THEN
-             Particles % Length(:,:) = gridres/4.0_dp         
+             Particles % Length(:,:) = gridres/4.0_dp
           ELSE
              CALL Fatal(SolverName, &
                   'Particle Element Fraction can currently only be 16,9,4, or 1')
@@ -2745,7 +2794,7 @@ CONTAINS
        ELSE IF (frac == 16.0_dp) THEN
           Particles % PVolume = (gridres/4.0_dp)*(gridres/4.0_dp)
           Particles % GVolume = Particles % PVolume
-       ELSE          
+       ELSE
           CALL Fatal(SolverName, &
                'Particle Element Fraction can currently only be 16,9,4, or 1')
        END IF
@@ -2761,10 +2810,10 @@ CONTAINS
 
        NodeIndexes => BulkElement % NodeIndexes
        nn = BulkElement % TYPE % NumberofNodes
-       CALL GetElementNodes(ElementNodes,BulkElement)         
+       CALL GetElementNodes(ElementNodes,BulkElement)
 
        stat = sMPMElementInfo( BulkElement,Particles, Model, ElementNodes, No, &
-            Particles % gridres, Basis,dBasisdx)            
+            Particles % gridres, Basis,dBasisdx)
 
        CALL GetScalarFieldInMesh(GridDmask, BulkElement, Basis, Dmask )
 
@@ -2780,7 +2829,7 @@ CONTAINS
        !get temperature
        PRINT *,'interpolating temperature to particles...'
        CALL MPMMeshVectorToParticle( Particles, Model, 5, 1)
-       PRINT *,'temperature interpolation complete.'    
+       PRINT *,'temperature interpolation complete.'
     END IF
 
     DO No = 1, NoParticles
@@ -2799,10 +2848,10 @@ CONTAINS
        NodeIndexes => BulkElement % NodeIndexes
        nn = BulkElement % TYPE % NumberofNodes
 
-       CALL GetElementNodes(ElementNodes,BulkElement)         
+       CALL GetElementNodes(ElementNodes,BulkElement)
 
        stat = sMPMElementInfo( BulkElement, Particles, Model, ElementNodes, No, &
-            Particles % gridres, Basis,dBasisdx)            
+            Particles % gridres, Basis,dBasisdx)
 
        IF( .NOT. stat ) THEN
           CALL Warn(SolverName,'Particle not in element')
@@ -2834,7 +2883,7 @@ CONTAINS
        IF (.NOT. ConstantEF) THEN
           CALL GetScalarFieldInMesh(GridEF, BulkElement, Basis, EF )
           ! Particles % EF(No) = MIN(EF,1.0_dp)
-          Particles % EF(No) = MAX(EF,0.0_dp)          
+          Particles % EF(No) = MAX(EF,0.0_dp)
        END IF
 
 
@@ -2861,9 +2910,33 @@ CONTAINS
        Particles % F(No,1) = 1.0_dp
        Particles % F(No,2) = 1.0_dp
        Particles % F(No,3) = 0.0_dp
-       Particles % F(No,4) = 0.0_dp       
+       Particles % F(No,4) = 0.0_dp
 
        H = MAX(H,1.0_dp)
+
+       ! IF (test1d) THEN
+       !    cm = 1.0_dp/3.0_dp
+       !    secondsperyear = 31556926.0_dp
+       !    H0 = 600.0_dp
+       !    v0 = 300.0_dp
+       !    Q0 = H0*v0
+       !    B0 = 1.9E8_dp
+       !    A = ((B0*1.0E-6_dp)**(-3.0_dp))*secondsperyear !Mpa^(-3) a^(-1)
+       !    C = (((910.0_dp*1.0e-6_dp*9.81_dp)/&
+       !         (4.0_dp*(A**(-cm))))*(1.0_dp-910.0_dp/1028.0_dp))**3.0_dp
+       !    !C is the weertman constant !C =2.45E-18; !m?3 s?1
+       !    EeExp = (cm-1.0_dp)/2.0_dp
+       !    Acm = A**(-cm)
+       !    m1 = 4.0_dp*C/Q0
+       !    m2 = 1.0_dp/(H0*H0*H0*H0)
+       !    Ha = (m1*Particles % Coordinate(No,1) + m2)**(-0.25_dp)
+       !    !Velocity
+       !    Va = Q0/Ha
+       !    Exx = C*Ha*Ha*Ha
+       !    Particles % Velocity(No,1) = Va
+       !    Particles % H(No) = Ha
+       ! END IF
+
        Particles % H(No) = H
        Particles % Mass(No) = Particles % pvolume(No) * Particles % H(No) * rhoi
 
@@ -3044,6 +3117,17 @@ CONTAINS
 
     CALL MPMParticlesToNodes( Particles, Model, 2)
 
+  IF (Test1D) THEN
+     print *,'TEST1d FIXING INITIAL MESH VALS'
+     Do i = 1,Model % Mesh % NumberOfNodes
+        IF (Model % Mesh % Nodes % x(i) <= dirichletmax) THEN
+           GHVal(GHPerm(i)) = GHiVal(GHiPerm(i))
+           GVel1Val(GVel1Perm(i)) = GVel1iVal(GVel1iPerm(i))
+        END IF
+
+     END DO
+  END IF
+
 
     IF ( ASSOCIATED( Basis )    )  DEALLOCATE( Basis )
     IF ( ASSOCIATED( dBasisdx ) )  DEALLOCATE(dBasisdx)
@@ -3052,7 +3136,7 @@ CONTAINS
   END SUBROUTINE InitParticleVars
 
 
-  !**************************************************************************  
+  !**************************************************************************
 
   !> Distance to a line specified between two points +/- 1 km
   !! used for Larsen C initialization
@@ -3070,7 +3154,7 @@ CONTAINS
     ymax = ymax+1000.0_dp
 
     xmin = xmin-1000.0_dp
-    ymin = ymin-1000.0_dp    
+    ymin = ymin-1000.0_dp
 
     IF (xmax <= x0 .OR. xmin >= x0 .OR. ymax <= y0 .OR. ymin >= y0) THEN
 
@@ -3103,7 +3187,7 @@ CONTAINS
 
     IMPLICIT NONE
     TYPE(Particle_t), POINTER :: Particles
-    TYPE(Model_t) :: Model    
+    TYPE(Model_t) :: Model
     INTEGER :: No,numoflayers,ii,kk,last,bestiter,numiters
     REAL(KIND=dp), POINTER :: Dam(:)
     REAL(KIND=dp) :: btzav,invvisc,Dav,rhoi,rhow
@@ -3122,7 +3206,7 @@ CONTAINS
 
     IF (.NOT. Visited) THEN
 
-       WRITE(SolverName, '(A)') 'InitParticleDz'         
+       WRITE(SolverName, '(A)') 'InitParticleDz'
 
        rhow = Particles % rhow
        rhoi = Particles % rhoi
@@ -3344,7 +3428,7 @@ CONTAINS
           zrange = zhigh(ii)-zlow(ii)
           Dam(ii) = Dmax*((undamlow-zlow(ii))/zrange)
           ! IF (Dam(ii) < 0.0_dp) Dam(ii) = 0.0_dp
-          ! IF (Dam(ii) > Dmax) Dam(ii) = Dmax          
+          ! IF (Dam(ii) > Dmax) Dam(ii) = Dmax
           IF (Dam(ii) > CriticalDamage) THEN
              IF (Dam(ii) > critormax) THEN
                 Dam(ii) = Dmax
@@ -3358,7 +3442,7 @@ CONTAINS
           zrange = zhigh(ii)-zlow(ii)
           Dam(ii) = Dmax*((zhigh(ii)-undamhigh)/zrange)
           ! IF (Dam(ii) < 0.0_dp) Dam(ii) = 0.0_dp
-          ! IF (Dam(ii) > Dmax) Dam(ii) = Dmax          
+          ! IF (Dam(ii) > Dmax) Dam(ii) = Dmax
           IF (Dam(ii) > CriticalDamage) THEN
              IF (Dam(ii) > critormax) THEN
                 Dam(ii) = Dmax
@@ -3402,7 +3486,7 @@ CONTAINS
 
   END SUBROUTINE InitParticleDz
 
-  !************************************************************************** 
+  !**************************************************************************
 
   !> Depth-average the 3-D damage field for a particle
   !! Accounts for the influence of vertically-varying viscosity
@@ -3428,15 +3512,15 @@ CONTAINS
        newviscz(:) = D * Particles % Bz(No,:)
        newviscav = (SUM(newviscz)-half*(newviscz(1)+newviscz(layers)) ) * denom
 
-       Particles % Dav(No,ii) = newviscav/btzav     
+       Particles % Dav(No,ii) = newviscav/btzav
     END DO
 
   END SUBROUTINE VertIntDamFromVisc
 
   !**************************************************************************
 
-  !> Subroutine allocates particles before launching them.  
-  SUBROUTINE AllocateParticles(Particles, Model,NoParticles)  
+  !> Subroutine allocates particles before launching them.
+  SUBROUTINE AllocateParticles(Particles, Model,NoParticles)
 
     IMPLICIT NONE
     TYPE(Particle_t), POINTER :: Particles
@@ -3486,14 +3570,14 @@ CONTAINS
        NoParticles = NoParticles + bufferparticles
     END IF
 
-    dim = Particles % dim 
+    dim = Particles % dim
     dofs = dim
 
 
     PrevNoParticles = Particles % NumberOfParticles
 
 
-    ! If appending particles to existing particles, we essentially have to make a copy 
+    ! If appending particles to existing particles, we essentially have to make a copy
     ! of the old allocation, reallocate the old allocation, and then fill the reallocated
     ! memory with the copied allocation for the existing particles. This effectively
     ! means we are at least doubling the memory use temporarily, which can cause a crash.
@@ -3514,18 +3598,18 @@ CONTAINS
        n1 = 1
        n2 = PrevNoParticles
 
-       Bedrock => Particles % Bedrock 
+       Bedrock => Particles % Bedrock
        Binit => Particles % Binit
        BZ => Particles % Bz
-       Coordinate => Particles % Coordinate 
+       Coordinate => Particles % Coordinate
        Damage => Particles % Damage
        Dav => Particles % Dav
        dD => Particles % dD
-       EF => Particles % EF 
+       EF => Particles % EF
        F => Particles % F
        FP => Particles % FP
        GMask => Particles % GMask
-       GradH => Particles % GradH     
+       GradH => Particles % GradH
        GradVel => Particles % GradVel
        GradZs => Particles % GradZs
        GridVelocity => Particles % GridVelocity
@@ -3545,7 +3629,7 @@ CONTAINS
        IF (Particles % usetracer) THEN
           Tracer => Particles % Tracer
        END IF
-       
+
 
        Velocity => Particles % Velocity
        xpic => Particles % xpic
@@ -3557,7 +3641,7 @@ CONTAINS
 
 
        ElementIndex => Particles % ElementIndex
-       InterpElem => Particles % InterpElem       
+       InterpElem => Particles % InterpElem
        Status => Particles % Status
 
        Static => Particles % Static
@@ -3589,7 +3673,7 @@ CONTAINS
     ALLOCATE( Particles % OrigLength(NoParticles,2) )
 
 
-    IF (Particles % outputdbassis) THEN    
+    IF (Particles % outputdbassis) THEN
        ALLOCATE( Particles % dbassis(NoParticles) )
     END IF
 
@@ -3603,14 +3687,14 @@ CONTAINS
     IF (Particles % usetracer) THEN
        ALLOCATE (Particles % Tracer(NoParticles))
     END IF
-    
+
 
     ALLOCATE( Particles % Velocity(NoParticles,dofs) )
     ALLOCATE( Particles % xpic(NoParticles,6) )
 
     ALLOCATE( Particles % ElementIndex(NoParticles) )
     ALLOCATE( Particles % InterpElem(NoParticles) )
-    ALLOCATE( Particles % Status(NoParticles) )    
+    ALLOCATE( Particles % Status(NoParticles) )
 
     ALLOCATE( Particles % Static(NoParticles) )
     ALLOCATE( Particles % DamStatus(NoParticles))
@@ -3627,13 +3711,13 @@ CONTAINS
 
        DO No=1,PrevNoParticles
           IF ( Status(No) == PARTICLE_LOST ) CYCLE
-          IF ( Status(No) == PARTICLE_ALLOCATED ) CYCLE           
+          IF ( Status(No) == PARTICLE_ALLOCATED ) CYCLE
           n = n+1
           Perm(n) = No
        END DO
 
        WRITE(Message,'(A,I0)') 'Number of old active particles: ',n
-       CALL Info('AllocateParticles',Message,Level=4)    
+       CALL Info('AllocateParticles',Message,Level=4)
 
        IF( n < PrevNoParticles ) THEN
           WRITE(Message,'(A,I0)') 'Number of deleted particles: ',PrevNoParticles-n
@@ -3668,7 +3752,7 @@ CONTAINS
        Particles % OrigLength(n1:n2,:) = OrigLength(Perm(n1:n2),:)
 
 
-       IF (Particles % outputdbassis) THEN       
+       IF (Particles % outputdbassis) THEN
           Particles % dbassis(n1:n2) = dbassis(Perm(n1:n2))
        END IF
 
@@ -3682,12 +3766,12 @@ CONTAINS
        IF (Particles % usetracer) THEN
           Particles % Tracer(n1:n2) = Tracer(Perm(n1:n2))
        END IF
-       
+
 
        Particles % Velocity(n1:n2,:) = Velocity(Perm(n1:n2),:)
        Particles % xpic(n1:n2,:) = xpic(Perm(n1:n2),:)
        Particles % ElementIndex(n1:n2) = ElementIndex(Perm(n1:n2))
-       Particles % InterpElem(n1:n2) = InterpElem(Perm(n1:n2))       
+       Particles % InterpElem(n1:n2) = InterpElem(Perm(n1:n2))
        Particles % Status(n1:n2) = Status(Perm(n1:n2))
        Particles % Static(n1:n2) = Static(Perm(n1:n2))
        Particles % DamStatus(n1:n2) = DamStatus(Perm(n1:n2))
@@ -3701,17 +3785,17 @@ CONTAINS
        IF (ASSOCIATED(OrigNo)) DEALLOCATE(OrigNo)
        IF (ASSOCIATED(UseInterpElem)) DEALLOCATE(UseInterpElem)
        IF (ASSOCIATED(Static)) DEALLOCATE(Static)
-       IF (ASSOCIATED(DamStatus)) DEALLOCATE(DamStatus)       
+       IF (ASSOCIATED(DamStatus)) DEALLOCATE(DamStatus)
        IF (ASSOCIATED(Status)) DEALLOCATE(Status)
        IF (ASSOCIATED(InterpElem )) DEALLOCATE(InterpElem )
-       IF (ASSOCIATED(ElementIndex )) DEALLOCATE(ElementIndex )           
+       IF (ASSOCIATED(ElementIndex )) DEALLOCATE(ElementIndex )
        IF (ASSOCIATED(xpic )) DEALLOCATE(xpic )
        IF (ASSOCIATED(Velocity )) DEALLOCATE(Velocity )
 
        IF (Particles % usetracer) THEN
-          IF (ASSOCIATED(Tracer)) DEALLOCATE(Tracer) 
+          IF (ASSOCIATED(Tracer)) DEALLOCATE(Tracer)
        END IF
-       
+
 
        IF (Particles % trackstrain) THEN
           IF (ASSOCIATED(Strain )) DEALLOCATE(Strain )
@@ -3719,7 +3803,7 @@ CONTAINS
 
        IF (ASSOCIATED(PVolume )) DEALLOCATE(PVolume )
 
-       IF (Particles % outputdbassis) THEN       
+       IF (Particles % outputdbassis) THEN
           IF (ASSOCIATED(dbassis ) ) DEALLOCATE(dbassis)
        END IF
 
@@ -3733,7 +3817,7 @@ CONTAINS
        IF (ASSOCIATED(GridVelocity )) DEALLOCATE(GridVelocity )
        IF (ASSOCIATED(GradZs )) DEALLOCATE(GradZs )
        IF (ASSOCIATED(GradVel )) DEALLOCATE(GradVel )
-       IF (ASSOCIATED(GradH )) DEALLOCATE(GradH )  
+       IF (ASSOCIATED(GradH )) DEALLOCATE(GradH )
        IF (ASSOCIATED(GMask )) DEALLOCATE(GMask )
        IF (ASSOCIATED(FP )) DEALLOCATE(FP )
        IF (ASSOCIATED(F )) DEALLOCATE(F )
@@ -3744,7 +3828,7 @@ CONTAINS
        IF (ASSOCIATED(Coordinate )) DEALLOCATE(Coordinate )
        IF (ASSOCIATED(Bz )) DEALLOCATE(Bz )
        IF (ASSOCIATED(Binit )) DEALLOCATE(Binit )
-       IF (ASSOCIATED(Bedrock )) DEALLOCATE(Bedrock )           
+       IF (ASSOCIATED(Bedrock )) DEALLOCATE(Bedrock )
     END IF
 
     ! Initialize the newly allocated particles with default values
@@ -3778,7 +3862,7 @@ CONTAINS
     Particles % OrigLength(n1:n2,:) = 0.0_dp
 
 
-    IF (Particles % outputdbassis) THEN    
+    IF (Particles % outputdbassis) THEN
        Particles % dbassis(n1:n2) = 0.0_dp
     END IF
 
@@ -3795,7 +3879,7 @@ CONTAINS
     IF (Particles % usetracer) THEN
        Particles % Tracer(n1:n2)  = 0.0_dp
     END IF
-    
+
 
     Particles % Velocity(n1:n2,:) = 0.0_dp
     Particles % xpic(n1:n2,:) = 0.0_dp
@@ -3820,7 +3904,7 @@ CONTAINS
 
   !> Subroutine deletes lost particles that have exited the computational domain
   !! TODO: once the MPM code is parallelized, this routine should also be used for
-  !! particles that go to a neighboring partition, as in ParticleUtils.F90 
+  !! particles that go to a neighboring partition, as in ParticleUtils.F90
   SUBROUTINE DeleteLostParticles(Particles)
 
     IMPLICIT NONE
@@ -3837,7 +3921,7 @@ CONTAINS
 
     n = 0
     n1 = 0
-    highestnoparticleslost = .FALSE.    
+    highestnoparticleslost = .FALSE.
 
     DO No=1,PrevNoParticles
        IF (Particles % Status(No) == PARTICLE_LOST .OR. &
@@ -3865,7 +3949,7 @@ CONTAINS
        END IF
     ELSE
        CALL Info('DeleteLostParticles','First particle with changed permutation: '&
-            //TRIM(I2S(n1)),Level=1)      
+            //TRIM(I2S(n1)),Level=1)
     END IF
 
 
@@ -3885,22 +3969,22 @@ CONTAINS
     Particles % GradVel(n1:n2,:) = Particles % GradVel(Perm(n1:n2),:)
     Particles % GradZs(n1:n2,:) = Particles % GradZs(Perm(n1:n2),:)
     Particles % GridVelocity(n1:n2,:) = Particles % GridVelocity(Perm(n1:n2),:)
-    Particles % GVolume(n1:n2) = Particles % GVolume(Perm(n1:n2)) 
+    Particles % GVolume(n1:n2) = Particles % GVolume(Perm(n1:n2))
     Particles % H(n1:n2) = Particles % H(Perm(n1:n2))
     Particles % InterpElem(n1:n2) = Particles % InterpElem(Perm(n1:n2))
     Particles % Length(n1:n2,:) = Particles % Length(Perm(n1:n2),:)
-    Particles % Mass(n1:n2) = Particles % Mass(Perm(n1:n2)) 
+    Particles % Mass(n1:n2) = Particles % Mass(Perm(n1:n2))
     Particles % MB(n1:n2) = Particles % MB(Perm(n1:n2))
     Particles % NextCoordinate(n1:n2,:) = Particles % NextCoordinate(Perm(n1:n2),:)
     Particles % OrigLength(n1:n2,:) = Particles % OrigLength(Perm(n1:n2),:)
 
-    IF (Particles % outputdbassis) THEN    
+    IF (Particles % outputdbassis) THEN
        Particles % dbassis(n1:n2) = Particles % dbassis(Perm(n1:n2))
     END IF
 
 
     Particles % PVolume(n1:n2) = Particles % PVolume(Perm(n1:n2))
-    Particles % DamStatus(n1:n2) = Particles % DamStatus(Perm(n1:n2))    
+    Particles % DamStatus(n1:n2) = Particles % DamStatus(Perm(n1:n2))
     Particles % Static(n1:n2) = Particles % Static(Perm(n1:n2))
     Particles % Status(n1:n2) = Particles % Status(Perm(n1:n2))
 
@@ -3911,7 +3995,7 @@ CONTAINS
     IF (Particles % usetracer) THEN
        Particles % tracer(n1:n2) = Particles % Tracer(Perm(n1:n2))
     END IF
-    
+
 
     Particles % Velocity(n1:n2,:) = Particles % Velocity(Perm(n1:n2),:)
     Particles % xpic(n1:n2,:) = Particles % xpic(Perm(n1:n2),:)
@@ -3937,7 +4021,7 @@ CONTAINS
        Particles % F(n2+1:PrevNoParticles,:) = 0.0_dp
        Particles % FP(n2+1:PrevNoParticles) = 0.0_dp
        Particles % GMask(n2+1:PrevNoParticles) = 0.0_dp
-       Particles % GradH(n2+1:PrevNoParticles,:) = 0.0_dp       
+       Particles % GradH(n2+1:PrevNoParticles,:) = 0.0_dp
        Particles % GradVel(n2+1:PrevNoParticles,:) = 0.0_dp
        Particles % GradZs(n2+1:PrevNoParticles,:) = 0.0_dp
        Particles % GridVelocity(n2+1:PrevNoParticles,:) = 0.0_dp
@@ -3950,13 +4034,13 @@ CONTAINS
        Particles % NextCoordinate(n2+1:PrevNoParticles,:) = 0.0_dp
        Particles % OrigLength(n2+1:PrevNoParticles,:) = 0.0_dp
 
-       IF (Particles % outputdbassis) THEN       
+       IF (Particles % outputdbassis) THEN
           Particles % dbassis(n2+1:PrevNoParticles) = 0.0_dp
        END IF
 
 
        Particles % PVolume(n2+1:PrevNoParticles) = 0.0_dp
-       Particles % damstatus(n2+1:PrevNoParticles) = 0          
+       Particles % damstatus(n2+1:PrevNoParticles) = 0
        Particles % Static(n2+1:PrevNoParticles) = .FALSE.
        Particles % Status(n2+1:PrevNoParticles) = PARTICLE_ALLOCATED
 
@@ -3966,7 +4050,7 @@ CONTAINS
 
        IF (Particles % usetracer) THEN
           Particles % Tracer(n2+1:PrevNoParticles) = 0.0_dp
-       END IF       
+       END IF
 
        Particles % Velocity(n2+1:PrevNoParticles,:) = 0.0_dp
        Particles % xpic(n2+1:PrevNoParticles,:) = 0.0_dp
@@ -3988,13 +4072,13 @@ CONTAINS
 
     IMPLICIT NONE
     TYPE(Particle_t), POINTER :: Particles
-    TYPE(Model_t) :: Model     
+    TYPE(Model_t) :: Model
     TYPE(Mesh_t), POINTER :: Mesh
-    TYPE(Nodes_t)   :: ElementNodes 
+    TYPE(Nodes_t)   :: ElementNodes
     TYPE(Variable_t), POINTER :: HVar,V1Var,V2Var,PassVar,Var, WeightVar,MassVar,&
          invvar,BCVar, IV1Var,IV2Var,HweightVar,BVar,PM,xp1var,xp2var,surfvar,&
          DxxVar,DyyVar,DzzVar,DxyVar,maskvar,mfvar,mfwvar,dirvar,dir2var,opvar
-    TYPE(Element_t), POINTER :: BulkElement       
+    TYPE(Element_t), POINTER :: BulkElement
     INTEGER :: nn, nb, NoVar, ii, No, ni,t, whichtime
     CHARACTER(LEN=MAX_NAME_LEN) :: TargetVariableName
     INTEGER, POINTER :: NodeIndexes(:),HPerm(:),V1Perm(:),V2Perm(:),PassPerm(:),&
@@ -4034,20 +4118,20 @@ CONTAINS
        rhow = Particles % rhow
        sealevel = Particles % sealevel
        rhoi = Particles % rhoi
-       gridres = Particles % gridres      
+       gridres = Particles % gridres
 
        g = ABS(Particles % gravity)
 
 
        cm = GetConstReal( Model % Constants, 'Viscosity Exponent', Found )
        IF (.NOT. Found) CALL Fatal(SolverName,&
-            'Need to define "Viscosity Exponent = Real $1/n" in constants')          
+            'Need to define "Viscosity Exponent = Real $1/n" in constants')
 
        Visited = .TRUE.
     END IF
 
     CALL INFO(Trim(SolverName), &
-         '-----Interpolating Particles to Field ----',Level=5)    
+         '-----Interpolating Particles to Field ----',Level=5)
 
 
     WeightVar => VariableGet(Model % Mesh % Variables, 'TempVar' )
@@ -4103,7 +4187,7 @@ CONTAINS
        V2Perm => V2Var % Perm
 
        IF (.NOT. Particles % uplag) THEN
-          V1Values = 0.0_dp       
+          V1Values = 0.0_dp
           V2Values = 0.0_dp
        END IF
 
@@ -4176,8 +4260,8 @@ CONTAINS
        V2Values => V2Var % Values
        V2Perm => V2Var % Perm
 
-       V1Values = 0.0_dp       
-       V2Values = 0.0_dp       
+       V1Values = 0.0_dp
+       V2Values = 0.0_dp
 
     ELSEIF (whichtime == 5) THEN
 
@@ -4223,7 +4307,7 @@ CONTAINS
           ! NodeIndexes => BulkElement % NodeIndexes
           nn = BulkElement % TYPE % NumberofNodes
 
-          Area = ElementArea(Model % Mesh,BulkElement,nn)        
+          Area = ElementArea(Model % Mesh,BulkElement,nn)
 
 
           DO t = 1,ABS(ElemParticles(ii) % NumberOfParticles)
@@ -4239,16 +4323,16 @@ CONTAINS
              IF (Particles % ShapeFunctions == 'gimpm') THEN
                 stat = GIMPMElementInfo( t,Particles, Model,BulkElement, ElementNodes, No, &
                      detJ, scale, .FALSE., Basis,dBasisdx)
-             ELSE      
+             ELSE
                 stat = sMPMElementInfo( BulkElement,Particles, Model, ElementNodes, No, &
-                     Particles % gridres, Basis,dBasisdx)                
+                     Particles % gridres, Basis,dBasisdx)
                 scale = 1.0_dp
                 detJ = Particles % PVolume(No)
              END IF
 
 
              ! NOTE: using true for gimpmelementinfo takes particles with
-             ! status PARTICLE_LEAVING (i.e. overlapping a bound, or passive element) 
+             ! status PARTICLE_LEAVING (i.e. overlapping a bound, or passive element)
              ! basis functions for that particle as if it was moved and scaled to fit
              ! entirely within the volume it overlaps in the element being called.
              ! Multiplying by "scale" is not applicable here. "Scale" is for use with
@@ -4311,11 +4395,11 @@ CONTAINS
                 END IF
 
 
-                
+
                 IF (.NOT. Particles % uplag) THEN
 
                    V1Values(V1Perm(NodeIndexes)) = V1Values(V1Perm(NodeIndexes)) + &
-                        Basis(1:nn) * Particles % Velocity(No,1) * Particles % Mass(No) 
+                        Basis(1:nn) * Particles % Velocity(No,1) * Particles % Mass(No)
                    V2Values(V2Perm(NodeIndexes)) = V2Values(V2Perm(NodeIndexes)) + &
                         Basis(1:nn) * Particles % Velocity(No,2)  * Particles % Mass(No)
                 END IF
@@ -4328,13 +4412,13 @@ CONTAINS
 
                 V1Values(V1Perm(NodeIndexes)) = V1Values(V1Perm(NodeIndexes)) + &
                      Basis(1:nn) * Particles % Velocity(No,1) * &
-                     Particles % Mass(No) 
+                     Particles % Mass(No)
                 V2Values(V2Perm(NodeIndexes)) = V2Values(V2Perm(NodeIndexes)) + &
                      Basis(1:nn) * Particles % Velocity(No,2) * &
                      Particles % Mass(No)
 
                 MassValues(MassPerm(NodeIndexes)) = MassValues(MassPerm(NodeIndexes)) +&
-                     Basis(1:nn)  * Particles % Mass(No) 
+                     Basis(1:nn)  * Particles % Mass(No)
 
                 IF (t==ABS(ElemParticles(ii) % NumberOfParticles)) THEN
                    WeightValues(WeightPerm(NodeIndexes)) = WeightValues(WeightPerm(NodeIndexes)) + 1.0_dp
@@ -4344,10 +4428,10 @@ CONTAINS
 
                 !you have stored particle vstar(r-1) on Particles % XPIC(No,1:2)
                 V1Values(V1Perm(NodeIndexes)) = V1Values(V1Perm(NodeIndexes)) + &
-                     Basis(1:nn) * Particles % xpic(No,1) * Particles % Mass(No) 
+                     Basis(1:nn) * Particles % xpic(No,1) * Particles % Mass(No)
 
                 V2Values(V2Perm(NodeIndexes)) = V2Values(V2Perm(NodeIndexes)) + &
-                     Basis(1:nn) * Particles % xpic(No,2) * Particles % Mass(No) 
+                     Basis(1:nn) * Particles % xpic(No,2) * Particles % Mass(No)
 
              ELSEIF (whichtime == 5) THEN
 
@@ -4361,7 +4445,7 @@ CONTAINS
                 END IF
 
                 HValues(HPerm(NodeIndexes)) = HValues(HPerm(NodeIndexes)) + &
-                     Basis(1:nn) * zs  *detJ  / (Area)                
+                     Basis(1:nn) * zs  *detJ  / (Area)
 
                 IF (t==ABS(ElemParticles(ii) % NumberOfParticles)) THEN
                    WeightValues(WeightPerm(NodeIndexes)) = WeightValues(WeightPerm(NodeIndexes)) + 1.0_dp
@@ -4382,19 +4466,19 @@ CONTAINS
                      Basis(1:nn) * detJ
 
                 HValues(HPerm(NodeIndexes)) = HValues(HPerm(NodeIndexes)) + &
-                     Basis(1:nn) * Particles % H(No)  *detJ  
+                     Basis(1:nn) * Particles % H(No)  *detJ
 
              ELSEIF (whichtime == 8) THEN
 
                 V1Values(V1Perm(NodeIndexes)) = V1Values(V1Perm(NodeIndexes)) + &
                      Basis(1:nn) * Particles % NextCoordinate(No,1) * &
-                     Particles % Mass(No) 
+                     Particles % Mass(No)
                 V2Values(V2Perm(NodeIndexes)) = V2Values(V2Perm(NodeIndexes)) + &
                      Basis(1:nn) * Particles % NextCoordinate(No,2) * &
                      Particles % Mass(No)
 
                 MassValues(MassPerm(NodeIndexes)) = MassValues(MassPerm(NodeIndexes)) +&
-                     Basis(1:nn)  * Particles % Mass(No) 
+                     Basis(1:nn)  * Particles % Mass(No)
 
                 IF (t==ABS(ElemParticles(ii) % NumberOfParticles)) THEN
                    WeightValues(WeightPerm(NodeIndexes)) = WeightValues(WeightPerm(NodeIndexes)) + 1.0_dp
@@ -4526,7 +4610,7 @@ CONTAINS
        END DO
 
        ! CALL UpdateVelocityBoundsOnMesh( Model )
-       CALL XPICBCVelocityUpdate( Model, V1Var, V1Perm, V1Values, V2Var, V2Perm, V2Values) 
+       CALL XPICBCVelocityUpdate( Model, V1Var, V1Perm, V1Values, V2Var, V2Perm, V2Values)
 
     ELSEIF (whichtime == 5) THEN
 
@@ -4614,12 +4698,12 @@ CONTAINS
        ALLOCATE( ZsLocalField(nn), FLocalField(nn), &
             BLocalField(nn),MaskLocalField(nn),&
             HLocalField(nn),EFLocalField(nn), &
-            BedLocalField(nn), MBLocalField(nn)) 
+            BedLocalField(nn), MBLocalField(nn))
 
        g = ABS(Particles % gravity)
-       rhoi = Particles % rhoi     
+       rhoi = Particles % rhoi
        rhow = Particles % rhow
-       dim = 2       
+       dim = 2
 
        movegl = Particles % movegl
        ConstantMB = Particles % constmb
@@ -4629,13 +4713,13 @@ CONTAINS
        IF (ConstantMB) THEN
           mbparam = GetConstReal( Model % Constants, 'mbparam', GotIt )
           IF (.NOT. GotIt) CALL Fatal(SolverName, &
-               'Need to define "mbparam = Real $mbparam" in constants') 
+               'Need to define "mbparam = Real $mbparam" in constants')
        END IF
 
        IF (ConstantEF) THEN
           efparam = GetConstReal( Model % Constants, 'efparam', GotIt )
           IF (.NOT. GotIt) CALL Fatal(SolverName, &
-               'Need to define "efparam = Real $efparam" in constants') 
+               'Need to define "efparam = Real $efparam" in constants')
        END IF
 
        IF (ConstantFric) THEN
@@ -4673,7 +4757,7 @@ CONTAINS
        maskPerm => mask % Perm
        maskVal => mask % Values
 
-       MaskLocalField = 0.0_dp            
+       MaskLocalField = 0.0_dp
 
        IF (.NOT. ConstantMB) THEN
           MB => VariableGet(Model % Mesh % Variables, 'MB' )
@@ -4699,7 +4783,7 @@ CONTAINS
        IF (.NOT. ConstantFric) THEN
           F => VariableGet(Model % Mesh % Variables, 'FP' )
           FPerm => F % Perm
-          FVal => F % Values   
+          FVal => F % Values
           FLocalField = 0.0_dp
        ELSE
           Particles % FP(:) = fricparam
@@ -4724,7 +4808,7 @@ CONTAINS
 
        F => VariableGet(Model % Mesh % Variables, 'FP' )
        FPerm => F % Perm
-       FVal => F % Values       
+       FVal => F % Values
 
        MB => VariableGet(Model % Mesh % Variables, 'MB' )
        MBPerm => MB % Perm
@@ -4759,7 +4843,7 @@ CONTAINS
              IF (ANY(Particles % Dav(No,:).NE.0.0_dp)) CYCLE
           END IF
 
-          Particles % Binit(No) = 0.0_dp    
+          Particles % Binit(No) = 0.0_dp
        END DO
 
     ELSEIF (whichtime == 6) THEN
@@ -4802,10 +4886,10 @@ CONTAINS
        ZsPerm => Zs % Perm
        ZsVal => Zs % Values
 
-       ZsLocalField = 0.0_dp       
+       ZsLocalField = 0.0_dp
 
        Particles % Gmask(:) = 0.0_dp
-       Particles % H(:) = 0.0_dp       
+       Particles % H(:) = 0.0_dp
        Particles % GradZs(:,:) = 0.0_dp
 
     ELSEIF (whichtime == 9) THEN
@@ -4814,7 +4898,7 @@ CONTAINS
        HPerm => H % Perm
        HVal => H % Values
 
-       HLocalField = 0.0_dp       
+       HLocalField = 0.0_dp
     END IF
 
 
@@ -4823,7 +4907,7 @@ CONTAINS
     DO ii = 1,nb
 
 
-       IF ( ElemTrack(ii) % Status >= FEM ) THEN          
+       IF ( ElemTrack(ii) % Status >= FEM ) THEN
 
           BulkElement => Model % Mesh % Elements( ii )
           NodeIndexes => BulkElement % NodeIndexes
@@ -4854,7 +4938,7 @@ CONTAINS
                 EFLocalField(1:nn) = EFVal(EFPerm(BulkElement % NodeIndexes(1:nn)))
              END IF
 
-             ! MB             
+             ! MB
              IF (.NOT. constantmb) THEN
                 MBLocalField(1:nn) = MBVal(MBPerm(BulkElement % NodeIndexes(1:nn)))
              END IF
@@ -4873,7 +4957,7 @@ CONTAINS
              ZsLocalField(1:nn) = ZsVal(LocalPerm(1:nn))
 
           ELSE IF (whichtime == 5) THEN
-             !BINIT            
+             !BINIT
              BLocalField(1:nn) = BVal(BPerm(BulkElement % NodeIndexes(1:nn)))
 
           ELSE IF (whichtime == 6) THEN
@@ -4900,7 +4984,7 @@ CONTAINS
              ELSE
 
                 stat = sMPMElementInfo( BulkElement, Particles, Model, ElementNodes, No, &
-                     Particles % gridres, Basis,dBasisdx)                  
+                     Particles % gridres, Basis,dBasisdx)
                 scale = 1.0_dp
              END IF
 
@@ -4927,7 +5011,7 @@ CONTAINS
                         SUM(Basis(1:nn) * maskLocalField(1:nn)) * scale
                 ELSE
                    Particles % GMask(No) = Particles % GMask(No) + &
-                        SUM(Basis(1:nn) * maskLocalField(1:nn)) * scale                
+                        SUM(Basis(1:nn) * maskLocalField(1:nn)) * scale
                 END IF
 
 
@@ -5030,8 +5114,8 @@ CONTAINS
 
   !**************************************************************************
 
-  !> For interpolating vector grid variables to particles  
-  SUBROUTINE MPMMeshVectorToParticle( Particles, Model, whichtime, count)    
+  !> For interpolating vector grid variables to particles
+  SUBROUTINE MPMMeshVectorToParticle( Particles, Model, whichtime, count)
 
     IMPLICIT NONE
     TYPE(Particle_t), POINTER :: Particles
@@ -5055,7 +5139,7 @@ CONTAINS
     REAL(KIND=dp), POINTER :: VVal(:),PVVal(:),BzVal(:),gmaskval(:),PMVal(:)
     CHARACTER(LEN=MAX_NAME_LEN) :: SolverName
     INTEGER :: minstatus
-    REAL(KIND=dp) :: Exx,Eyy,Exy1,Exy2,Exy,Ezz,Ee    
+    REAL(KIND=dp) :: Exx,Eyy,Exy1,Exy2,Exy,Ezz,Ee
 
     SAVE :: Mesh,nn,nb,LocalPerm,LocalField,dim,Visited,&
          PVLocalPerm,PVLocalField,BzLocalPerm,BzLocalField,templayers,&
@@ -5074,7 +5158,7 @@ CONTAINS
 
        dim = 2
 
-       WRITE(SolverName, '(A)') 'MPMMeshVectorToParticle'       
+       WRITE(SolverName, '(A)') 'MPMMeshVectorToParticle'
 
        templayers = Particles % numberoftemperaturelayers
        particlelayers = Particles % numberofparticlelayers
@@ -5167,7 +5251,7 @@ CONTAINS
 
        V => VariableGet(Model % Mesh % Variables, 'Vplus' )
        VPerm => V % Perm
-       VVal => V % Values   
+       VVal => V % Values
 
     ELSEIF (whichtime == 5) THEN
 
@@ -5233,7 +5317,7 @@ CONTAINS
                 !Use the previous velocity field to hold the velocity difference.
                 !Then, ParticleVel(t+dt) = ParticleVel(t) + (NewVel - PrevVel)
                 IF ( ((whichtime == 2) .AND. (count .NE. 0)) .OR. &
-                     ((whichtime == 1  .AND. count<0))) THEN 
+                     ((whichtime == 1  .AND. count<0))) THEN
                    PVLocalPerm(1:nn) = PVPerm(BulkElement % NodeIndexes)
                    DO kk = 1,nn
                       DO jj = 1,dim
@@ -5279,7 +5363,7 @@ CONTAINS
                 ELSE
 
                    stat = sMPMElementInfo( BulkElement, Particles, Model, ElementNodes, No, &
-                        Particles % gridres, Basis,dBasisdx)                   
+                        Particles % gridres, Basis,dBasisdx)
 
                    scale = 1.0_dp
                 END IF
@@ -5379,7 +5463,7 @@ CONTAINS
                    END DO
 
                    !InterpLayers holds the interpolation map and functions to
-                   !interpolate between the temperature layers and particle layers. 
+                   !interpolate between the temperature layers and particle layers.
                    !InterpLayers % Map(particlelayer,1) and InterpLayers % Map(particlelayer,2) give the
                    !two temperature layers that a particle layers lies between.
                    !InterpLayers % InterpFun(particlelayer,1) and InterpLayers % InterpFun(particlelayer,2)
@@ -5573,7 +5657,7 @@ CONTAINS
 
     IMPLICIT NONE
 
-    TYPE(Model_t) :: Model    
+    TYPE(Model_t) :: Model
     INTEGER :: templayers,ii,jj,kk
     REAL(KIND=dp) :: y2s,maxtemp
     REAL(KIND=dp) :: H,Arr,btzav,Temp,TT(2),TestArr(2)
@@ -5586,7 +5670,7 @@ CONTAINS
 
 
 
-    WRITE(SolverName, '(A)') 'VertIntMeshTemp'  
+    WRITE(SolverName, '(A)') 'VertIntMeshTemp'
 
     templayers = GetInteger( Model % Constants, 'number of temperature layers', GotIt )
     IF (.NOT. GotIt) THEN
@@ -5652,7 +5736,7 @@ CONTAINS
        Arr = log(Arr);
        TT(1) = ((-139.0E03_dp/Arr)/8.314_dp)-273.15_dp;
 
-       !Backcalculating for T<-10        
+       !Backcalculating for T<-10
        Arr = (btzav)/(y2s**(-1.0_dp/3.0_dp)*1.0E-06_dp);
        Arr = Arr**(-3.0_dp);
        Arr = Arr/3.985E-13_dp;
@@ -5695,9 +5779,9 @@ CONTAINS
     TYPE(Model_t) :: Model
     TYPE(Mesh_t), POINTER :: Mesh
     TYPE(Nodes_t)   :: ElementNodes
-    TYPE(Particle_t), POINTER :: Particles    
+    TYPE(Particle_t), POINTER :: Particles
     TYPE(Variable_t), POINTER :: GM,Zs,bed,H
-    TYPE(Element_t), POINTER :: BulkElement     
+    TYPE(Element_t), POINTER :: BulkElement
     INTEGER :: nn, nb, ii, ni
     CHARACTER(LEN=MAX_NAME_LEN) :: VariableName
     INTEGER, POINTER :: NodeIndexes(:),ZsPerm(:),bedPerm(:),HPerm(:),&
@@ -5725,7 +5809,7 @@ CONTAINS
     ZsPerm => Zs % Perm
     ZsVal => Zs % Values
 
-    bed => VariableGet( Model % Mesh % Variables, 'Bed')    
+    bed => VariableGet( Model % Mesh % Variables, 'Bed')
     bedPerm => bed % Perm
     bedVal => bed % Values
 
@@ -5735,7 +5819,7 @@ CONTAINS
 
     !grounded mask (nomovegl : positive if floating)
     !groudned mask (movegl : neg if float)
-    GM => VariableGet( Mesh % Variables, 'mask')    
+    GM => VariableGet( Mesh % Variables, 'mask')
     GMPerm => GM % Perm
     GMVal => GM % Values
 
@@ -5781,13 +5865,13 @@ CONTAINS
     IMPLICIT NONE
     TYPE(Model_t) :: Model
     TYPE(Mesh_t), POINTER :: Mesh
-    TYPE(Variable_t), POINTER :: OrigSurf,Vel1,Vel2,InitVel1,InitVel2,BCTrack     
+    TYPE(Variable_t), POINTER :: OrigSurf,Vel1,Vel2,InitVel1,InitVel2,BCTrack
     INTEGER :: nn, ii
     INTEGER, POINTER :: OrigSurfPerm(:),Vel1Perm(:),Vel2Perm(:), &
          InitVel1Perm(:),InitVel2Perm(:),BCTrackPerm(:)
     LOGICAL :: Visited = .FALSE.
     REAL(KIND=dp), POINTER :: OrigSurfVal(:),Vel1Val(:),Vel2Val(:),InitVel1Val(:),&
-         InitVel2Val(:),BCTrackVal(:) 
+         InitVel2Val(:),BCTrackVal(:)
 
     SAVE :: Mesh,nn,OrigSurf,OrigSurfPerm,OrigSurfVal,Vel1,Vel1Perm,Vel1Val, &
          Vel2,Vel2Perm,Vel2Val,InitVel1,InitVel1Perm,InitVel1Val,InitVel2,InitVel2Perm, &
@@ -5800,23 +5884,23 @@ CONTAINS
 
        OrigSurf => VariableGet(Model % Mesh % Variables, 'OrigSurf' )
        OrigSurfPerm =>  OrigSurf % Perm
-       OrigSurfVal =>  OrigSurf % Values       
+       OrigSurfVal =>  OrigSurf % Values
 
        Vel1 => VariableGet( Model % Mesh % Variables, 'SSAVelocity 1')
        Vel1Perm => Vel1 % Perm
-       Vel1Val => Vel1 % Values       
+       Vel1Val => Vel1 % Values
 
        Vel2 => VariableGet(Model % Mesh % Variables, 'SSAVelocity 2' )
        Vel2Perm => Vel2 % Perm
-       Vel2Val => Vel2 % Values       
+       Vel2Val => Vel2 % Values
 
        InitVel1 => VariableGet(Model % Mesh % Variables, 'InvVel 1')
        InitVel1Perm => InitVel1 % Perm
-       InitVel1Val => InitVel1 % Values       
+       InitVel1Val => InitVel1 % Values
 
        InitVel2 => VariableGet(Model % Mesh % Variables, 'InvVel 2')
        InitVel2Perm => InitVel2 % Perm
-       InitVel2Val => InitVel2 % Values       
+       InitVel2Val => InitVel2 % Values
 
        BCTrack=> VariableGet(Model % Mesh % Variables, 'BCTrack')
        BCTrackPerm => BCTrack % Perm
@@ -5844,14 +5928,14 @@ CONTAINS
   !**************************************************************************
 
   !> After updating particle positions and then mapping previous particle velocities to
-  !! the grid, update grid velocities to satisfy Dirichlet boundary conditions  
+  !! the grid, update grid velocities to satisfy Dirichlet boundary conditions
   SUBROUTINE BCVelocityUpdate( Model, Vel1Var, Vel1Perm, Vel1Val, Vel2Var, Vel2Perm, Vel2Val )
 
     IMPLICIT NONE
     TYPE(Model_t) :: Model
     TYPE(Element_t), POINTER :: CurrentElement
     INTEGER, POINTER :: NodeIndexes(:)
-    TYPE(Variable_t), POINTER :: Vel1Var,Vel2Var    
+    TYPE(Variable_t), POINTER :: Vel1Var,Vel2Var
     INTEGER :: t,n,nd,i,j
     INTEGER, POINTER :: Vel1Perm(:),Vel2Perm(:)
     LOGICAL :: GotIt,MaskIceRises,Visited=.FALSE.
@@ -5861,7 +5945,7 @@ CONTAINS
     INTEGER, POINTER :: IRPerm(:)
     REAL(KIND=dp), POINTER :: IR(:)
 
-    TYPE(Particle_t), POINTER :: Particles   
+    TYPE(Particle_t), POINTER :: Particles
     REAL(KIND=dp) :: xmin,xmax,ymin,ymax,vel(2),rotmat(2,2),theta
     LOGICAL :: zeronormalvel
 
@@ -5877,7 +5961,7 @@ CONTAINS
        END IF
 
        IRPerm => IRSol % Perm
-       IR => IRSol % Values 
+       IR => IRSol % Values
 
        Visited = .TRUE.
     END IF
@@ -5963,7 +6047,7 @@ CONTAINS
                    vel = MATMUL(TRANSPOSE(rotmat),vel)
 
                    Vel1Val(Vel1Perm(NodeIndexes(j))) = vel(2)
-                   Vel2Val(Vel2Perm(NodeIndexes(j))) = vel(1)                       
+                   Vel2Val(Vel2Perm(NodeIndexes(j))) = vel(1)
                 END DO
              END IF
           END IF
@@ -5981,7 +6065,7 @@ CONTAINS
     TYPE(Model_t) :: Model
     TYPE(Element_t), POINTER :: CurrentElement
     INTEGER, POINTER :: NodeIndexes(:)
-    TYPE(Variable_t), POINTER :: HVar   
+    TYPE(Variable_t), POINTER :: HVar
     INTEGER :: t,n,nd,i
     INTEGER, POINTER :: HPerm(:)
     LOGICAL :: GotIt
@@ -6028,7 +6112,7 @@ CONTAINS
     TYPE(Model_t) :: Model
     TYPE(Element_t), POINTER :: CurrentElement
     INTEGER, POINTER :: NodeIndexes(:)
-    TYPE(Variable_t), POINTER :: Vel1Var,Vel2Var    
+    TYPE(Variable_t), POINTER :: Vel1Var,Vel2Var
     INTEGER :: t,n,nd,i,j
     INTEGER, POINTER :: Vel1Perm(:),Vel2Perm(:)
     LOGICAL :: GotIt
@@ -6101,7 +6185,7 @@ CONTAINS
                    vel = MATMUL(TRANSPOSE(rotmat),vel)
 
                    Vel1Val(Vel1Perm(NodeIndexes(j))) = vel(2)
-                   Vel2Val(Vel2Perm(NodeIndexes(j))) = vel(1)                       
+                   Vel2Val(Vel2Perm(NodeIndexes(j))) = vel(1)
                 END DO
              END IF
           END IF
@@ -6116,12 +6200,12 @@ CONTAINS
   !> Given the element & global coordinates returns the local coordinates.
   !! The idea of this routine is to transparently block the local coordinate
   !! search from the user by directly giving the basis function values related
-  !! to a global coordinate. Sloppy tolerances are used since we *should* 
+  !! to a global coordinate. Sloppy tolerances are used since we *should*
   !! have already located the element.
   FUNCTION ParticleElementInfo( CurrentElement, GlobalCoord, &
        SqrtElementMetric, Basis, dBasisdx ) RESULT ( stat )
 
-    IMPLICIT NONE    
+    IMPLICIT NONE
     TYPE(Element_t), POINTER :: CurrentElement
     REAL(KIND=dp) :: GlobalCoord(:), SqrtElementMetric, LocalDistance
     REAL(KIND=dp) :: Basis(:)
@@ -6142,7 +6226,7 @@ CONTAINS
 
     Stat = PointInElement( CurrentElement, ElementNodes, &
          GlobalCoord, LocalCoord, GlobalEps = -1.0_dp, LocalEps = 1.0e3_dp, &
-         LocalDistance = LocalDistance ) 
+         LocalDistance = LocalDistance )
 
     IF( .NOT. Stat ) THEN
        Misses(1) = Misses(1) + 1
@@ -6176,11 +6260,11 @@ CONTAINS
   !**************************************************************************
 
   !!> Particle splitting and reassignment of particle values for sMPM and GIMPM
-  SUBROUTINE ParticleSplitting(Particles, Model, numoflayers )    
+  SUBROUTINE ParticleSplitting(Particles, Model, numoflayers )
 
-    IMPLICIT NONE    
+    IMPLICIT NONE
     TYPE(Particle_t), POINTER :: Particles
-    TYPE(Model_t) :: Model    
+    TYPE(Model_t) :: Model
     REAL(KIND=dp) :: maxlength, maxDPlength,mlength,davsplitthres,sl,oldcoord(2)
     INTEGER :: No, count, NoOld, jj, ii,curr,numoflayers
     LOGICAL :: Visited=.FALSE.,GotIt,savepasf
@@ -6189,7 +6273,7 @@ CONTAINS
 
     SAVE :: Visited, maxlength, maxDPlength,davsplitthres
 
-    WRITE(SolverName, '(A)') 'ParticleSplitting'    
+    WRITE(SolverName, '(A)') 'ParticleSplitting'
 
     IF (.NOT. Visited ) THEN
        maxlength = Particles % maxlength
@@ -6216,7 +6300,7 @@ CONTAINS
        END IF
 
        !we marked on xpic if a particle was within a
-       !mixed grounding/ungrounding element 
+       !mixed grounding/ungrounding element
        IF (Particles % xpic(No,1) == 1.0_dp) THEN
           mlength = MIN(mlength,Particles % maxGLlength)
        END IF
@@ -6271,9 +6355,9 @@ CONTAINS
        !MaxNumberOfParticles.  Otherwise, it will increase the allocation to jj+old.
        ! CALL AllocateParticles( Model, Particles, (jj+NoOld) )
 
-       PRINT *, 'Allocating Particles to split'      
+       PRINT *, 'Allocating Particles to split'
        CALL AllocateParticles( Particles, Model, (jj+NoOld) )
-       PRINT *, 'Done Allocating'     
+       PRINT *, 'Done Allocating'
 
        Particles % NumberOfParticles = jj+NoOld
 
@@ -6288,7 +6372,7 @@ CONTAINS
           END IF
 
           !we marked on xpic if a particle was within a
-          !mixed grounding/ungrounding element 
+          !mixed grounding/ungrounding element
           IF (Particles % xpic(No,1) == 1.0_dp) THEN
              mlength = MIN(mlength,Particles % maxGLlength)
           END IF
@@ -6343,7 +6427,7 @@ CONTAINS
                    IF (Particles % usetracer) THEN
                       Particles % Tracer(curr) = Particles % Tracer(No)
                    END IF
-                   
+
                    Particles % Status(curr) = Particles % Status(No)
                    Particles % Coordinate(curr,:) = Particles % Coordinate(No,:)
                    Particles % ElementIndex(curr) = Particles % ElementIndex(No)
@@ -6351,7 +6435,7 @@ CONTAINS
                    Particles % Bz(curr,:) = Particles % Bz(No,:)
                    Particles % EF(curr) = Particles % EF(No)
                    Particles % MB(curr) = Particles % MB(No)
-                   Particles % Bedrock(curr) = Particles % Bedrock(No)                   
+                   Particles % Bedrock(curr) = Particles % Bedrock(No)
                    Particles % Binit(curr) = Particles % Binit(No)
                    Particles % FP(curr) = Particles % FP(No)
                    Particles % H(curr) = Particles % H(No)
@@ -6371,7 +6455,7 @@ CONTAINS
                    Particles % gmask(curr) = Particles % gmask(No)
                    Particles % pvolume(curr) = Particles % pvolume(No)
                    Particles % mass(curr) = Particles % mass(No)
-                   Particles % damstatus(curr) = Particles % damstatus(No)                   
+                   Particles % damstatus(curr) = Particles % damstatus(No)
                    Particles % Static(curr) = Particles % Static(No)
                    Particles % GVolume(curr) = Particles % GVolume(No)
 
@@ -6386,7 +6470,7 @@ CONTAINS
 
                 END DO
 
-                oldcoord = Particles % Coordinate(No,:) 
+                oldcoord = Particles % Coordinate(No,:)
 
                 !For No:
                 !move x and y coord in positive direction for the splitting coord
@@ -6404,7 +6488,7 @@ CONTAINS
                 !during particles in elem if on bound
                 Particles % Length(No,:) = Particles % Length(No,:)/2.0_dp
 
-                IF (Particles % ShapeFunctions == 'gimpm') THEN          
+                IF (Particles % ShapeFunctions == 'gimpm') THEN
                    Particles % GVolume(No) = Particles % Length(No,1) * &
                         Particles % Length(No,2)
                 END IF
@@ -6432,7 +6516,7 @@ CONTAINS
                      Particles % GradH(curr,1)*(Particles % Coordinate(curr,1)-oldcoord(1)) + &
                      Particles % GradH(curr,2)*(Particles % Coordinate(curr,2)-oldcoord(2))
 
-                IF (Particles % H(curr) < 1.0_dp) Particles % H(curr) = 1.0_dp                
+                IF (Particles % H(curr) < 1.0_dp) Particles % H(curr) = 1.0_dp
 
                 !(x,y)(count+2): xold-(Lx/4),yold+(Ly/4)
                 curr = Count + 2
@@ -6445,7 +6529,7 @@ CONTAINS
 
                 Particles % H(curr) = Particles % H(curr) + &
                      Particles % GradH(curr,1)*(Particles % Coordinate(curr,1)-oldcoord(1)) + &
-                     Particles % GradH(curr,2)*(Particles % Coordinate(curr,2)-oldcoord(2))                
+                     Particles % GradH(curr,2)*(Particles % Coordinate(curr,2)-oldcoord(2))
 
                 IF (Particles % H(curr) < 1.0_dp) Particles % H(curr) = 1.0_dp
 
@@ -6453,7 +6537,7 @@ CONTAINS
                    curr = Count + jj - 1
                    Particles % Length(curr,:) = Particles % Length(No,:)
 
-                   IF (Particles % ShapeFunctions == 'gimpm') THEN 
+                   IF (Particles % ShapeFunctions == 'gimpm') THEN
                       Particles % GVolume(curr) = Particles % Length(curr,1)*Particles % Length(curr,2)
                    END IF
                 END DO
@@ -6496,7 +6580,7 @@ CONTAINS
                 IF (Particles % usetracer) THEN
                    Particles % tracer(Count) = Particles % Tracer(No)
                 END IF
-                
+
                 Particles % Status(Count) = Particles % Status(No)
                 Particles % Coordinate(Count,:) = Particles % Coordinate(No,:)
                 Particles % ElementIndex(Count) = Particles % ElementIndex(No)
@@ -6504,11 +6588,11 @@ CONTAINS
                 Particles % Bz(Count,:) = Particles % Bz(No,:)
                 Particles % EF(Count) = Particles % EF(No)
                 Particles % MB(Count) = Particles % MB(No)
-                Particles % Bedrock(Count) = Particles % Bedrock(No)                  
+                Particles % Bedrock(Count) = Particles % Bedrock(No)
                 Particles % Binit(Count) = Particles % Binit(No)
                 Particles % FP(Count) = Particles % FP(No)
                 Particles % H(Count) = Particles % H(No)
-                Particles % F(Count,:) = Particles % F(No,:)              
+                Particles % F(Count,:) = Particles % F(No,:)
                 Particles % Dav(Count,:) = Particles % Dav(No,:)
                 Particles % GradH(Count,:) = Particles % GradH(No,:)
                 Particles % GradVel(Count,:) =  Particles % GradVel(No,:)
@@ -6523,7 +6607,7 @@ CONTAINS
                 Particles % gmask(Count) = Particles % gmask(No)
                 Particles % pvolume(Count) = Particles % pvolume(No)
                 Particles % mass(Count) = Particles % mass(No)
-                Particles % damstatus(Count) = Particles % damstatus(No)                   
+                Particles % damstatus(Count) = Particles % damstatus(No)
                 Particles % Static(Count) = Particles % Static(No)
                 Particles % GVolume(Count) = Particles % GVolume(No)
 
@@ -6536,7 +6620,7 @@ CONTAINS
 
                 Particles % OrigNo(Count) = Particles % OrigNo(No)
 
-                oldcoord = Particles % Coordinate(No,:) 
+                oldcoord = Particles % Coordinate(No,:)
 
                 !For No:
                 !move x or y coord in positive direction for the splitting coord
@@ -6561,12 +6645,12 @@ CONTAINS
                 Particles % H(No) = Particles % H(No) + &
                      Particles % GradH(No,ii)*(Particles % Coordinate(No,ii)-oldcoord(ii))
 
-                IF (Particles % H(No) < 1.0_dp) Particles % H(No) = 1.0_dp                
+                IF (Particles % H(No) < 1.0_dp) Particles % H(No) = 1.0_dp
 
                 Particles % H(Count) = Particles % H(Count) + &
                      Particles % GradH(Count,ii)*(Particles % Coordinate(Count,ii)-oldcoord(ii))
 
-                IF (Particles % H(Count) < 1.0_dp) Particles % H(Count) = 1.0_dp                
+                IF (Particles % H(Count) < 1.0_dp) Particles % H(Count) = 1.0_dp
 
                 IF (Particles % ShapeFunctions == 'gimpm') THEN
                    Particles % GVolume(No) = Particles % Length(No,1) * &
@@ -6576,7 +6660,7 @@ CONTAINS
                         Particles % Length(Count,2)
                 END IF
 
-                Count = Count + 1                
+                Count = Count + 1
              END IF
           END IF
        END DO
@@ -6593,10 +6677,10 @@ CONTAINS
   !! Not as efficient as MPMMeshVectorToParticle
   SUBROUTINE GetVectorFieldInMesh(Var, CurrentElement, Basis, Velo, dBasisdx, GradVelo )
 
-    IMPLICIT NONE    
+    IMPLICIT NONE
     TYPE(Variable_t), POINTER :: Var
     TYPE(Element_t) :: CurrentElement
-    REAL(KIND=dp) :: Basis(:), Velo(:) 
+    REAL(KIND=dp) :: Basis(:), Velo(:)
     REAL(KIND=dp), OPTIONAL :: dBasisdx(:,:), GradVelo(:,:)
 
     TYPE(Valuelist_t), POINTER :: Params
@@ -6638,8 +6722,8 @@ CONTAINS
 
     !-----------------------------------------------------------------
     ! compute the velocity also for case when the particle
-    ! has just crossed the boundary. For example, its floating on the 
-    ! fluid boundary. This is a little bit fishy and could perhaps 
+    ! has just crossed the boundary. For example, its floating on the
+    ! fluid boundary. This is a little bit fishy and could perhaps
     ! only be done conditionally....
     ! Can't really determine the gradient here
     !-----------------------------------------------------------------
@@ -6651,7 +6735,7 @@ CONTAINS
              LocalVelo(i,k) = Var % Values( VeloFieldDofs*(j-1)+k)
           END DO
        END DO
-    ELSE    
+    ELSE
        IF(.NOT. InterfaceNodes ) RETURN
 
        SumBasis = 0.0_dp
@@ -6693,10 +6777,10 @@ CONTAINS
   !! Not as efficient as MPMMeshScalarToParticle
   SUBROUTINE GetScalarFieldInMesh(Var, CurrentElement, Basis, Pot, dBasisdx, GradPot )
 
-    IMPLICIT NONE    
+    IMPLICIT NONE
     TYPE(Variable_t), POINTER :: Var
     TYPE(Element_t) :: CurrentElement
-    REAL(KIND=dp) :: Basis(:), Pot 
+    REAL(KIND=dp) :: Basis(:), Pot
     REAL(KIND=dp), OPTIONAL :: dBasisdx(:,:), GradPot(:)
 
     TYPE(Mesh_t), POINTER :: Mesh
@@ -6714,7 +6798,7 @@ CONTAINS
        Visited = .TRUE.
     END IF
 
-    ALLOCATE( LocalPerm(n), LocalField(n) )       
+    ALLOCATE( LocalPerm(n), LocalField(n) )
 
     LocalPerm = 0
     LocalField = 0.0_dp
@@ -6748,10 +6832,10 @@ CONTAINS
 
   !**************************************************************************
 
-  !> Finds the particle in the mesh using octree based search. 
+  !> Finds the particle in the mesh using octree based search.
   !! This could be preferred in the initial finding of the correct elements.
   !! The major downside of the method is that there is no controlled face
-  !! detection needed for wall interaction, for example.  
+  !! detection needed for wall interaction, for example.
   SUBROUTINE LocateParticleInMeshOctree( ElementIndex, GlobalCoords, &
        LocalCoords )
 
@@ -6759,7 +6843,7 @@ CONTAINS
     USE Interpolation
     USE DefUtils
 
-    IMPLICIT NONE    
+    IMPLICIT NONE
     INTEGER :: ElementIndex
     REAL(KIND=dp) :: GlobalCoords(3)
     REAL(KIND=dp), OPTIONAL :: LocalCoords(3)
@@ -6839,7 +6923,7 @@ CONTAINS
 
   !**************************************************************************
 
-  SUBROUTINE EditParticleVolume(Particles, No,jj,N,S,E,W,xmax,xmin,ymax,ymin)      
+  SUBROUTINE EditParticleVolume(Particles, No,jj,N,S,E,W,xmax,xmin,ymax,ymin)
 
     IMPLICIT NONE
     TYPE(Particle_t), POINTER :: Particles
@@ -6871,22 +6955,22 @@ CONTAINS
 
   !**************************************************************************
 
-  !> Saves particles in unstructured XML VTK format (VTU) to an external file.   
+  !> Saves particles in unstructured XML VTK format (VTU) to an external file.
   SUBROUTINE ParticleOutputVtu( Particles,Model )
 
-    USE DefUtils 
+    USE DefUtils
     USE MeshUtils
     USE ElementDescription
     USE AscBinOutputUtils
 
     IMPLICIT NONE
-    TYPE(Particle_t), POINTER :: Particles  
+    TYPE(Particle_t), POINTER :: Particles
     TYPE(Model_t) :: Model
     TYPE(ValueList_t),POINTER :: Params
     INTEGER, SAVE :: nTime = 0
     LOGICAL :: GotIt, Parallel, FixedMeshend,SinglePrec
     CHARACTER(MAX_NAME_LEN), SAVE :: FilePrefix
-    CHARACTER(MAX_NAME_LEN) :: VtuFile, PvtuFile 
+    CHARACTER(MAX_NAME_LEN) :: VtuFile, PvtuFile
     TYPE(Mesh_t), POINTER :: Mesh
     TYPE(Variable_t), POINTER :: Var
     INTEGER :: i, j, k, Partitions, Part, ExtCount, FileindexOffSet, iTime, &
@@ -6913,7 +6997,7 @@ CONTAINS
 
        ALLOCATE( LocalVal( maxdofs) )
        Params => ListGetSolverParams()
-       FloatingOnly = GetLogical( Params,'Floating Only',GotIt) 
+       FloatingOnly = GetLogical( Params,'Floating Only',GotIt)
        IF( FloatingOnly ) THEN
           CALL Info('VtuOutputSolver','Saving Floating Particles Only!',Level=7)
        END IF
@@ -6940,7 +7024,7 @@ CONTAINS
     CALL Info('ParticleOutputVtu','Saving in VTK XML unstructured format to file: ' &
          //TRIM(FilePrefix)//'.vtu',Level=1)
 
-    Dir = ListGetString( Params,'Filename Directory')       
+    Dir = ListGetString( Params,'Filename Directory')
 
     MinSaveStatus = PARTICLE_ACTIVE
     MaxSaveStatus = PARTICLE_LOST
@@ -6959,28 +7043,28 @@ CONTAINS
     SaveAll = GetLogical( Params,'Save All',GotIt)
     IF (.NOT. GotIt) SaveAll = .FALSE.
 
-    SinglePrec = GetLogical( Params,'Single Precision',GotIt) 
+    SinglePrec = GetLogical( Params,'Single Precision',GotIt)
     IF( SinglePrec ) THEN
        CALL Info('VtuOutputSolver','Using single precision arithmetics in output!',Level=7)
     END IF
 
 
-    minx = GetCReal( Params,'Min X To Save Particle',GotIt) 
+    minx = GetCReal( Params,'Min X To Save Particle',GotIt)
     IF( .NOT. GotIt ) THEN
        minx = -HUGE(1.0_dp)
     END IF
 
-    maxx = GetCReal( Params,'Max X To Save Particle',GotIt) 
+    maxx = GetCReal( Params,'Max X To Save Particle',GotIt)
     IF( .NOT. GotIt ) THEN
        maxx = HUGE(1.0_dp)
     END IF
 
     IF( SinglePrec ) THEN
        PrecBits = 32
-       PrecSize = KIND( SingleWrk ) 
+       PrecSize = KIND( SingleWrk )
     ELSE
        PrecBits = 64
-       PrecSize = KIND( DoubleWrk ) 
+       PrecSize = KIND( DoubleWrk )
     END IF
     IntSize = KIND(i)
 
@@ -7030,8 +7114,8 @@ CONTAINS
   CONTAINS
 
     SUBROUTINE WriteVtuFile( VtuFile, Model )
-      IMPLICIT NONE      
-      TYPE(Model_t) :: Model      
+      IMPLICIT NONE
+      TYPE(Model_t) :: Model
       CHARACTER(LEN=*), INTENT(IN) :: VtuFile
       INTEGER, PARAMETER :: VtuUnit = 58
       TYPE(Variable_t), POINTER :: Var, Solution
@@ -7058,7 +7142,7 @@ CONTAINS
 
       REAL(KIND=dp) :: difference,tmf
 
-      TYPE(Nodes_t) :: Nodes      
+      TYPE(Nodes_t) :: Nodes
       TYPE(Element_t), POINTER :: Element
       TYPE(Variable_t), POINTER :: ParticleVar
 
@@ -7085,7 +7169,7 @@ CONTAINS
 
       ThisOnly = .TRUE.
 
-      ParticleMode = .TRUE. !.NOT. ASSOCIATED( Particles % UVW ) 
+      ParticleMode = .TRUE. !.NOT. ASSOCIATED( Particles % UVW )
 
       ! Linefeed character
       !-----------------------------------
@@ -7104,7 +7188,7 @@ CONTAINS
       IF(.TRUE.) THEN
          OPEN( UNIT=VtuUnit, FILE=VtuFile, FORM = 'formatted', STATUS='unknown' )
          WRITE( VtuUnit,'(A)') ' '
-         CLOSE( VtuUnit ) 
+         CLOSE( VtuUnit )
       END IF
 
       ! This format works both for ascii and binary output
@@ -7112,7 +7196,7 @@ CONTAINS
       OPEN( UNIT=VtuUnit, FILE=VtuFile, FORM = 'unformatted', ACCESS = 'stream', STATUS='unknown' )
 
       WRITE( OutStr,'(A)') '<?xml version="1.0"?>'//lf
-      CALL AscBinStrWrite( OutStr ) 
+      CALL AscBinStrWrite( OutStr )
 
       IF ( LittleEndian() ) THEN
          OutStr = '<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">'//lf
@@ -7202,7 +7286,7 @@ CONTAINS
                      CASE(15)
                         FieldName = 'psre_two'
                      CASE(16)
-                        FieldName = 'psre_three'                        
+                        FieldName = 'psre_three'
                      CASE(17)
                         FieldName = 'f'
                      CASE(18)
@@ -7278,13 +7362,13 @@ CONTAINS
                      IF( FieldName == 'velocity' ) THEN
                         dofs = 2
                      ELSE IF( FieldName == 'gridvelocity' ) THEN
-                        dofs = 2                        
+                        dofs = 2
                      ELSE IF( FieldName == 'gradvel') THEN
                         dofs = 4
                      ELSE IF( FieldName == 'gradzs') THEN
                         dofs = 2
                      ELSE IF (FieldName == 'gradh') THEN
-                        dofs = 2                        
+                        dofs = 2
                      ELSE IF( FieldName == 'length') THEN
                         dofs = 2
                      ELSE IF (FieldName == 'origlength') THEN
@@ -7299,7 +7383,7 @@ CONTAINS
                         dofs = layers
                      ELSE IF (FieldName == 'damageiii') THEN
                         !returns DII(z)
-                        dofs = layers                            
+                        dofs = layers
                      ELSE IF (FieldName == 'xdamage') THEN
                         !returns D(z) if damdofs == 1, otherwise, returns Dxx(z)
                         dofs = layers
@@ -7311,12 +7395,12 @@ CONTAINS
                         dofs = layers
                      ELSE IF (FieldName == 'xydamage') THEN
                         !returns D(z) if damdofs == 1, otherwise, returns Dxx(z)
-                        dofs = layers                        
+                        dofs = layers
                      ELSE IF (FieldName == 'dd') THEN
                         !returns dD(z) if damdofs == 1, otherwise, returns dDxx(z)
                         dofs = layers
                      ELSE IF (FieldName == 'bz') THEN
-                        dofs = layers                        
+                        dofs = layers
                      ELSE IF (FieldName == 'nextcoordinate') THEN
                         dofs = 2
                      ELSE IF (FieldName == 'xpic') THEN
@@ -7331,12 +7415,12 @@ CONTAINS
                         dofs = 2
                      ELSE IF (FieldName == 'pde_one') THEN
                         dofs = 3
-                     ELSE IF (FieldName == 'pde_two') THEN           
+                     ELSE IF (FieldName == 'pde_two') THEN
                         dofs = 3
                      ELSE IF (FieldName == 'pde_three' .OR. FieldName == 'eff_pds') THEN
                         dofs = 3
                      ELSE IF (FieldName == 'pdse_two' .OR. FieldName == 'eff_pdse_two') THEN
-                        dofs = 3                 
+                        dofs = 3
                      ELSE IF (FieldName == 'psre_one') THEN
                         dofs = 3
                      ELSE IF (FieldName == 'psre_two') THEN
@@ -7378,7 +7462,7 @@ CONTAINS
                      ELSE IF (FieldName == 'mass') THEN
                         dofs = 1
                      ELSE IF( FieldName == 'elementindex') THEN
-                        dofs = 1                        
+                        dofs = 1
                      ELSE IF( FieldName == 'binit') THEN
                         dofs = 1
                      ELSE IF( FieldName == 'status') THEN
@@ -7434,15 +7518,15 @@ CONTAINS
                   WRITE( OutStr,'(A,I0,A)') '        <DataArray type="Float',PrecBits,'" Name="'//TRIM(FieldName)
                   CALL AscBinStrWrite( OutStr )
 
-                  WRITE( OutStr,'(A,I0,A)') '" NumberOfComponents="',sdofs,'"'          
-                  CALL AscBinStrWrite( OutStr ) 
+                  WRITE( OutStr,'(A,I0,A)') '" NumberOfComponents="',sdofs,'"'
+                  CALL AscBinStrWrite( OutStr )
 
                   IF( AsciiOutput ) THEN
                      WRITE( OutStr,'(A)') ' format="ascii">'//lf
-                     CALL AscBinStrWrite( OutStr ) 
+                     CALL AscBinStrWrite( OutStr )
                   ELSE
                      WRITE( OutStr,'(A,I0,A)') ' format="appended" offset="',Offset,'"/>'//lf
-                     CALL AscBinStrWrite( OutStr ) 
+                     CALL AscBinStrWrite( OutStr )
                   END IF
                END IF
 
@@ -7480,19 +7564,19 @@ CONTAINS
                            IF( FieldName == 'velocity' ) THEN
                               LocalVal(1:sdofs) = Particles % Velocity(i,1:sdofs)
                            ELSE IF( FieldName == 'gridvelocity' ) THEN
-                              LocalVal(1:sdofs) = Particles % GridVelocity(i,1:sdofs)             
+                              LocalVal(1:sdofs) = Particles % GridVelocity(i,1:sdofs)
                            ELSE IF( FieldName == 'gradvel') THEN
                               LocalVal(1:sdofs) = Particles % GradVel(i,1:sdofs)
-                           ELSE IF( FieldName == 'gradh') THEN                           
-                              LocalVal(1:sdofs) = Particles % GradH(i,1:sdofs)                                                           
-                           ELSE IF( FieldName == 'gradzs') THEN                           
+                           ELSE IF( FieldName == 'gradh') THEN
+                              LocalVal(1:sdofs) = Particles % GradH(i,1:sdofs)
+                           ELSE IF( FieldName == 'gradzs') THEN
                               LocalVal(1:sdofs) = Particles % GradZs(i,1:sdofs)
-                           ELSE IF( FieldName == 'length') THEN                           
+                           ELSE IF( FieldName == 'length') THEN
                               LocalVal(1:sdofs) = Particles % Length(i,1:sdofs)
                            ELSE IF (FieldName == 'origlength') THEN
                               LocalVal(1:sdofs) = Particles % OrigLength(i,1:sdofs)
 
-                           ELSE IF( FieldName == 'dav') THEN                            
+                           ELSE IF( FieldName == 'dav') THEN
                               LocalVal(1:sdofs) = Particles % Dav(i,1:sdofs)
 
                               DO  lay = 1,sdofs
@@ -7535,12 +7619,12 @@ CONTAINS
                               LocalVal(1:sdofs) = Particles % Damage(i,1:sdofs,3)
                            ELSE IF (FieldName == 'xydamage') THEN
 
-                              LocalVal(1:sdofs) = Particles % Damage(i,1:sdofs,4)                              
+                              LocalVal(1:sdofs) = Particles % Damage(i,1:sdofs,4)
 
                            ELSE IF (FieldName == 'dd') THEN
                               LocalVal(1:sdofs) = Particles % dD(i,1:sdofs,1)
                            ELSE IF (FieldName == 'bz') THEN
-                              LocalVal(1:sdofs) = Particles % bz(i,1:sdofs)                    
+                              LocalVal(1:sdofs) = Particles % bz(i,1:sdofs)
                            ELSE IF (FieldName == 'nextcoordinate') THEN
                               LocalVal(1:sdofs) = Particles % NextCoordinate(i,1:sdofs)
                            ELSE IF (FieldName == 'xpic') THEN
@@ -7581,7 +7665,7 @@ CONTAINS
                               pSR2(3,3) = -pSR2(1,1)-pSR2(2,2)
 
                               EeExp =  (1.0_dp-3.0_dp)/(2.0_dp * 3.0_dp)
-                              EFexp = -1.0_dp/3.0_dp        
+                              EFexp = -1.0_dp/3.0_dp
 
 
                               Ee = 0.5_dp*(pSR2(1,1)*pSR2(1,1) + pSR2(2,2)*pSR2(2,2) + &
@@ -7610,7 +7694,7 @@ CONTAINS
                               Tau(2,2) = taurhsmultthird * (exxd1m1-2.0_dp*eyyd2m1+ezzd3m1-exyd4)
                               Tau(3,3) = taurhsmultthird * (exxd1m1+eyyd2m1-2.0_dp*ezzd3m1+2.0_dp*exyd4)
                               Tau(1,2) = -RHS * 0.5_dp * (psr2(1,2)*(D(1)+D(2)-2.0_dp) + D(4)*(psr2(1,1)+psr2(2,2)))
-                              Tau(2,1) = Tau(1,2)        
+                              Tau(2,1) = Tau(1,2)
 
 
                               CALL Eigen2DSym_TryGenFirst(Tau(1:2,1:2),EigValues,EigenVec)
@@ -7634,7 +7718,7 @@ CONTAINS
                               pSR2(3,3) = -pSR2(1,1)-pSR2(2,2)
 
                               EeExp =  (1.0_dp-3.0_dp)/(2.0_dp * 3.0_dp)
-                              EFexp = -1.0_dp/3.0_dp        
+                              EFexp = -1.0_dp/3.0_dp
 
 
                               Ee = 0.5_dp*(pSR2(1,1)*pSR2(1,1) + pSR2(2,2)*pSR2(2,2) + &
@@ -7682,7 +7766,7 @@ CONTAINS
                               pSR2(3,3) = -pSR2(1,1)-pSR2(2,2)
 
                               EeExp =  (1.0_dp-3.0_dp)/(2.0_dp * 3.0_dp)
-                              EFexp = -1.0_dp/3.0_dp        
+                              EFexp = -1.0_dp/3.0_dp
 
 
                               Ee = 0.5_dp*(pSR2(1,1)*pSR2(1,1) + pSR2(2,2)*pSR2(2,2) + &
@@ -7719,14 +7803,14 @@ CONTAINS
                               denom = one/( D(4)*D(4) + D(1) + D(2) -D(1)*D(2) - one)
                               t1d2m1 = Tau(1,1)*(D(2)-one)*denom
                               t2d1m1 = Tau(2,2)*(D(1)-one)*denom
-                              t3od3m1 = Tau(3,3)/(D(3)-one)     
+                              t3od3m1 = Tau(3,3)/(D(3)-one)
                               d4t4 = Tau(1,2)*D(4)*denom
 
                               Etau(1,1) = onethird*(two*t1d2m1 - t2d1m1 +t3od3m1 -d4t4)
                               Etau(2,2) = onethird*(-t1d2m1 + two*t2d1m1 +t3od3m1 -d4t4)
                               Etau(3,3) = onethird*(-t1d2m1 - t2d1m1 - two*t3od3m1 + two*d4t4)
                               Etau(1,2) = half*denom*(tau(1,2)*(D(1)+D(2)-two) - D(4)*(Tau(1,1)+Tau(2,2)))
-                              Etau(2,1) = Etau(1,2)                              
+                              Etau(2,1) = Etau(1,2)
 
 
                               SR(1) = ETau(1,1)
@@ -7738,10 +7822,10 @@ CONTAINS
 
                               IF (FieldName == 'eff_pdse_two' ) THEN
 
-                                 CALL PrincipalEigenVec(SR,EV)       
+                                 CALL PrincipalEigenVec(SR,EV)
                                  LocalVal(1) = EV(1,2)
                                  LocalVal(2) = EV(2,2)
-                                 LocalVal(3) = EV(3,2)  
+                                 LocalVal(3) = EV(3,2)
 
                               END IF
 
@@ -7751,7 +7835,7 @@ CONTAINS
 
                                  LocalVal(1) = PD(1)
                                  LocalVal(2) = PD(2)
-                                 LocalVal(3) = PD(3)       
+                                 LocalVal(3) = PD(3)
 
                               END IF
 
@@ -7765,7 +7849,7 @@ CONTAINS
                               pSR2(3,3) = -pSR2(1,1)-pSR2(2,2)
 
                               EeExp =  (1.0_dp-3.0_dp)/(2.0_dp * 3.0_dp)
-                              EFexp = -1.0_dp/3.0_dp        
+                              EFexp = -1.0_dp/3.0_dp
 
 
                               Ee = 0.5_dp*(pSR2(1,1)*pSR2(1,1) + pSR2(2,2)*pSR2(2,2) + &
@@ -7812,12 +7896,12 @@ CONTAINS
 
                               PD=0.0_dp
 
-                              IF (Particles % gamma>0.0_dp  ) THEN
+                              IF (Particles % gamma>0.0_dp .or. Particles%nodzz ) THEN
                                  CALL PrincipalDamage(Particles%Dav(i,:),PD)
 
                                  LocalVal(1) = PD(1)
                                  LocalVal(2) = PD(2)
-                                 LocalVal(3) = PD(3)                                 
+                                 LocalVal(3) = PD(3)
 
                                  IF (Particles % useriftdmax) THEN
                                     IF (Particles % DamStatus(i)==1) THEN
@@ -7953,7 +8037,7 @@ CONTAINS
 
                               LocalVal(1) = EV(1,2)
                               LocalVal(2) = EV(2,2)
-                              LocalVal(3) = EV(3,2)                           
+                              LocalVal(3) = EV(3,2)
 
                            ELSE IF (FieldName == 'psre_three') THEN
 
@@ -8005,7 +8089,7 @@ CONTAINS
                               !old
                               LocalVal(1) = EV(1,2)
                               LocalVal(2) = EV(2,2)
-                              LocalVal(3) = EV(3,2) 
+                              LocalVal(3) = EV(3,2)
 
                            ELSEIF (FieldName == 'f') THEN
                               LocalVal(1:4) = Particles % F(i,1:4)
@@ -8014,32 +8098,32 @@ CONTAINS
                         ELSE
                            sdofs = 1
 
-                           IF (FieldName == 'particle time') THEN                            
+                           IF (FieldName == 'particle time') THEN
                               LocalVal(1) = Particles % time
-                           ELSEIF (FieldName == 'particle dt') THEN                            
+                           ELSEIF (FieldName == 'particle dt') THEN
                               LocalVal(1) = Particles % dtime
-                           ELSE IF( FieldName == 'fp' ) THEN                           
+                           ELSE IF( FieldName == 'fp' ) THEN
                               LocalVal(1) = MAX(Particles % FP(i),0.0_dp)
                            ELSE IF( FieldName == 'h') THEN
                               IF (Particles % H(i) .NE. Particles % H(i)) Particles % H(i) = -999.0_dp
                               LocalVal(1) = Particles % H(i)
-                           ELSE IF( FieldName == 'gvolume') THEN                           
+                           ELSE IF( FieldName == 'gvolume') THEN
                               LocalVal(1) = Particles % Gvolume(i)
-                           ELSE IF( FieldName == 'pvolume') THEN                           
+                           ELSE IF( FieldName == 'pvolume') THEN
                               LocalVal(1) = Particles % pVolume(i)
                            ELSE IF (FieldName == 'mass') THEN
                               LocalVal(1) = Particles % mass(i)
-                           ELSE IF( FieldName == 'elementindex') THEN                         
-                              LocalVal(1) = Particles % ElementIndex(i)                              
-                           ELSE IF( FieldName == 'binit') THEN                             
+                           ELSE IF( FieldName == 'elementindex') THEN
+                              LocalVal(1) = Particles % ElementIndex(i)
+                           ELSE IF( FieldName == 'binit') THEN
                               LocalVal(1) = Particles % binit(i)
-                           ELSE IF( FieldName == 'status') THEN                            
+                           ELSE IF( FieldName == 'status') THEN
                               LocalVal(1) = Particles % Status(i)
-                           ELSE IF( FieldName == 'interpelem') THEN                            
+                           ELSE IF( FieldName == 'interpelem') THEN
                               LocalVal(1) = Particles % InterpElem(i)
-                           ELSE IF( FieldName == 'ef') THEN                            
+                           ELSE IF( FieldName == 'ef') THEN
                               LocalVal(1) = Particles % EF(i)
-                           ELSE IF( FieldName == 'gmask') THEN                            
+                           ELSE IF( FieldName == 'gmask') THEN
                               LocalVal(1) = Particles % Gmask(i)
                            ELSE IF( FieldName == 'viscosity') THEN
                               LocalVal(1) = (1.0_dp - Particles % Dav(i,1)) * &
@@ -8099,7 +8183,7 @@ CONTAINS
 
                IF( AsciiOutput ) THEN
                   WRITE( OutStr,'(A)') lf//'        </DataArray>'//lf
-                  CALL AscBinStrWrite( OutStr ) 
+                  CALL AscBinStrWrite( OutStr )
                END IF
             END DO
 
@@ -8108,12 +8192,12 @@ CONTAINS
 
       IF( WriteXML ) THEN
          WRITE( OutStr,'(A)') '      </PointData>'//lf
-         CALL AscBinStrWrite( OutStr ) 
+         CALL AscBinStrWrite( OutStr )
 
          WRITE( OutStr,'(A)') '      <CellData>'//lf
-         CALL AscBinStrWrite( OutStr ) 
+         CALL AscBinStrWrite( OutStr )
          WRITE( OutStr,'(A)') '      </CellData>'//lf
-         CALL AscBinStrWrite( OutStr ) 
+         CALL AscBinStrWrite( OutStr )
       END IF
 
 
@@ -8121,17 +8205,17 @@ CONTAINS
       !-------------------------------------
       IF( WriteXML ) THEN
          WRITE( OutStr,'(A)') '      <Points>'//lf
-         CALL AscBinStrWrite( OutStr ) 
+         CALL AscBinStrWrite( OutStr )
 
          WRITE( OutStr,'(A,I0,A,I0,A)') '        <DataArray type="Float',PrecBits,'" NumberOfComponents="',dim,'"'
-         CALL AscBinStrWrite( OutStr )       
+         CALL AscBinStrWrite( OutStr )
 
          IF( AsciiOutput ) THEN
             WRITE( OutStr,'(A)') ' format="ascii">'//lf
-            CALL AscBinStrWrite( OutStr ) 
+            CALL AscBinStrWrite( OutStr )
          ELSE
             WRITE( OutStr,'(A,I0,A)') ' format="appended" offset="',Offset,'"/>'//lf
-            CALL AscBinStrWrite( OutStr ) 
+            CALL AscBinStrWrite( OutStr )
          END IF
       END IF
 
@@ -8140,7 +8224,7 @@ CONTAINS
          Offset = Offset + IntSize + k
       END IF
 
-      IF( WriteData ) THEN        
+      IF( WriteData ) THEN
          IF( BinaryOutput ) WRITE( VtuUnit ) k
 
          LocalVal = 0.0_dp
@@ -8176,13 +8260,13 @@ CONTAINS
          CALL AscBinRealWrite( 0.0_dp, .TRUE.)
       END IF
 
-      IF( AsciiOutput ) THEN   
+      IF( AsciiOutput ) THEN
          WRITE( OutStr,'(A)') lf//'        </DataArray>'//lf
-         CALL AscBinStrWrite( OutStr ) 
+         CALL AscBinStrWrite( OutStr )
       END IF
       IF( WriteXML ) THEN
          WRITE( OutStr,'(A)') '      </Points>'//lf
-         CALL AscBinStrWrite( OutStr ) 
+         CALL AscBinStrWrite( OutStr )
       END IF
 
 
@@ -8190,17 +8274,17 @@ CONTAINS
       !-------------------------------------
       IF( WriteXML ) THEN
          WRITE( OutStr,'(A)') '      <Cells>'//lf
-         CALL AscBinStrWrite( OutStr ) 
+         CALL AscBinStrWrite( OutStr )
 
          WRITE( OutStr,'(A)') '        <DataArray type="Int32" Name="connectivity"'
-         CALL AscBinStrWrite( OutStr ) 
+         CALL AscBinStrWrite( OutStr )
 
          IF( AsciiOutput ) THEN
             WRITE( OutStr,'(A)') ' format="ascii">'//lf
-            CALL AscBinStrWrite( OutStr ) 
+            CALL AscBinStrWrite( OutStr )
          ELSE
             WRITE( OutStr,'(A,I0,A)') ' format="appended" offset="',Offset,'"/>'//lf
-            CALL AscBinStrWrite( OutStr ) 
+            CALL AscBinStrWrite( OutStr )
          END IF
       END IF
 
@@ -8211,30 +8295,30 @@ CONTAINS
       END IF
 
       IF( WriteData ) THEN
-         IF( BinaryOutput ) WRITE( VtuUnit ) k        
+         IF( BinaryOutput ) WRITE( VtuUnit ) k
          DO i = 1, NumberOfNodes
             CALL AscBinIntegerWrite( i - 1)
          END DO
-         CALL AscBinIntegerWrite( 0, .TRUE. ) 
+         CALL AscBinIntegerWrite( 0, .TRUE. )
       END IF
 
       IF( AsciiOutput ) THEN
          WRITE( OutStr,'(A)') lf//'        </DataArray>'//lf
-         CALL AscBinStrWrite( OutStr ) 
+         CALL AscBinStrWrite( OutStr )
       END IF
 
-      ! Offsets for element indexes 
+      ! Offsets for element indexes
       !-------------------------------------------------------------------
       IF( WriteXML ) THEN
          WRITE( OutStr,'(A)') '        <DataArray type="Int32" Name="offsets"'
-         CALL AscBinStrWrite( OutStr ) 
+         CALL AscBinStrWrite( OutStr )
 
          IF( AsciiOutput ) THEN
             WRITE( OutStr,'(A)') ' format="ascii">'//lf
-            CALL AscBinStrWrite( OutStr ) 
+            CALL AscBinStrWrite( OutStr )
          ELSE
             WRITE( OutStr,'(A,I0,A)') ' format="appended" offset="',Offset,'"/>'//lf
-            CALL AscBinStrWrite( OutStr ) 
+            CALL AscBinStrWrite( OutStr )
          END IF
       END IF
 
@@ -8244,27 +8328,27 @@ CONTAINS
       END IF
 
       IF( WriteData ) THEN
-         IF( BinaryOutput ) WRITE( VtuUnit ) k         
+         IF( BinaryOutput ) WRITE( VtuUnit ) k
          DO i = 1, NumberOfNodes
             CALL AscBinIntegerWrite( i )
          END DO
-         CALL AscBinIntegerWrite( 0, .TRUE.)        
+         CALL AscBinIntegerWrite( 0, .TRUE.)
       END IF
 
-      IF( AsciiOutput ) THEN   
+      IF( AsciiOutput ) THEN
          WRITE( OutStr,'(A)') lf//'        </DataArray>'//lf
-         CALL AscBinStrWrite( OutStr ) 
+         CALL AscBinStrWrite( OutStr )
       END IF
       IF( WriteXML ) THEN
          WRITE( OutStr,'(A)') '        <DataArray type="Int32" Name="types"'
-         CALL AscBinStrWrite( OutStr ) 
+         CALL AscBinStrWrite( OutStr )
 
          IF( AsciiOutput ) THEN
             WRITE( OutStr,'(A)') ' FORMAT="ascii">'//lf
-            CALL AscBinStrWrite( OutStr ) 
+            CALL AscBinStrWrite( OutStr )
          ELSE
             WRITE( OutStr,'(A,I0,A)') ' format="appended" offset="',Offset,'"/>'//lf
-            CALL AscBinStrWrite( OutStr ) 
+            CALL AscBinStrWrite( OutStr )
          END IF
       END IF
 
@@ -8279,27 +8363,27 @@ CONTAINS
          DO i = 1, NumberOfNodes
             CALL AscBinIntegerWrite( 1 )
          END DO
-         CALL AscBinIntegerWrite( 0, .TRUE. )     
+         CALL AscBinIntegerWrite( 0, .TRUE. )
       END IF
 
       IF( AsciiOutput ) THEN
          WRITE( OutStr,'(A)') lf//'        </DataArray>'//lf
-         CALL AscBinStrWrite( OutStr ) 
+         CALL AscBinStrWrite( OutStr )
       END IF
       IF( WriteXml ) THEN
          WRITE( OutStr,'(A)') '      </Cells>'//lf
-         CALL AscBinStrWrite( OutStr ) 
+         CALL AscBinStrWrite( OutStr )
          WRITE( OutStr,'(A)') '    </Piece>'//lf
-         CALL AscBinStrWrite( OutStr ) 
+         CALL AscBinStrWrite( OutStr )
          WRITE( OutStr,'(A)') '  </UnstructuredGrid>'//lf
-         CALL AscBinStrWrite( OutStr ) 
+         CALL AscBinStrWrite( OutStr )
       END IF
 
 
       IF( BinaryOutput ) THEN
          IF( WriteXML ) THEN
-            WRITE( OutStr,'(A)') '<AppendedData encoding="raw">'//lf                    
-            CALL AscBinStrWrite( OutStr )           
+            WRITE( OutStr,'(A)') '<AppendedData encoding="raw">'//lf
+            CALL AscBinStrWrite( OutStr )
             WRITE( VtuUnit ) '_'
 
             WriteXML = .FALSE.
@@ -8307,16 +8391,16 @@ CONTAINS
             GOTO 100
          ELSE
             WRITE( OutStr,'(A)') lf//'</AppendedData>'//lf
-            CALL AscBinStrWrite( OutStr ) 
+            CALL AscBinStrWrite( OutStr )
          END IF
       END IF
 
 
       WRITE( OutStr,'(A)') '</VTKFile>'//lf
-      CALL AscBinStrWrite( OutStr ) 
+      CALL AscBinStrWrite( OutStr )
 
       WRITE( OutStr,'(A)') ' '
-      CALL AscBinStrWrite( OutStr ) 
+      CALL AscBinStrWrite( OutStr )
 
       CLOSE( VtuUnit )
 
@@ -8339,7 +8423,7 @@ CONTAINS
     REAL(KIND=dp) :: D(2,2),T(3,3),pDold(3),pDnew(3)
     REAL(KIND=dp) :: Dnew(layers),newviscz(layers)
     REAL(KIND=dp) :: btzav,newviscav,oolmo
-    REAL(KIND=dp) :: EigVals(2),EigVec(2,2)    
+    REAL(KIND=dp) :: EigVals(2),EigVec(2,2)
     REAL(KIND=dp) :: CriticalDamage,DMax,pddmax,DavNew(4),eigdmax
     REAL(KIND=dp) :: one = 1.0_dp, half=1.0_dp/2.0_dp
     INTEGER :: infor,No,ii,layers,damdofs
@@ -8349,10 +8433,10 @@ CONTAINS
 
     DO ii = 1,4
 
-       Dnew = Particles % Damage(No,:,ii) + Particles % dD(No,:,ii)       
-       newviscz(:) = Particles % Bz(No,:) 
+       Dnew = Particles % Damage(No,:,ii) + Particles % dD(No,:,ii)
+       newviscz(:) = Particles % Bz(No,:)
        btzav = (SUM(newviscz)-half*(newviscz(1)+newviscz(layers))) * oolmo
-       newviscz(:) = Dnew * Particles % Bz(No,:) 
+       newviscz(:) = Dnew * Particles % Bz(No,:)
        newviscav = (SUM(newviscz)-half*(newviscz(1)+newviscz(layers))) * oolmo
        DavNew(ii) = newviscav/btzav
     END DO
@@ -8360,7 +8444,7 @@ CONTAINS
     !old damage eigs
     D(1,1) = Particles % Dav(No,1)
     D(2,1) = Particles % Dav(No,4)
-    D(1,2) = Particles % Dav(No,4)    
+    D(1,2) = Particles % Dav(No,4)
     D(2,2) = Particles % Dav(No,2)
 
     CALL Eigen2DSym_TryGenFirst(D,EigVals,EigVec)
@@ -8371,7 +8455,7 @@ CONTAINS
     !new damage eigs
     D(1,1) = DavNew(1)
     D(2,1) = DavNew(4)
-    D(1,2) = DavNew(4)    
+    D(1,2) = DavNew(4)
     D(2,2) = DavNew(2)
 
     CALL Eigen2DSym_TryGenFirst(D,EigVals,EigVec)
@@ -8391,12 +8475,12 @@ CONTAINS
     IMPLICIT NONE
     TYPE(Particle_t), POINTER :: Particles
     REAL(KIND=dp) :: Din(4), D(2,2),Dout(3)
-    REAL(KIND=dp) :: EigVals(2),EigVec(2,2)       
+    REAL(KIND=dp) :: EigVals(2),EigVec(2,2)
     INTEGER :: infor,no,ii
 
     D(1,1) = Din(1)
     D(1,2) = Din(4)
-    D(2,1) = Din(4)    
+    D(2,1) = Din(4)
     D(2,2) = Din(2)
 
     CALL Eigen2DSym_TryGenFirst(D,EigVals,EigVec)
@@ -8404,7 +8488,7 @@ CONTAINS
     !since output of eigvalues2d is in ascending order
     Dout(1) = EigVals(2)
     Dout(2) = EigVals(1)
-    Dout(3) = Din(3)      
+    Dout(3) = Din(3)
 
   END SUBROUTINE PrincipalDamage
 
@@ -8420,10 +8504,10 @@ CONTAINS
 
     D(1,1) = Din(1)
     D(2,1) = Din(4)
-    D(1,2) = Din(4)    
+    D(1,2) = Din(4)
     D(2,2) = Din(2)
 
-    CALL Eigen2DSym_TryGenFirst(D,EigVals,EigVec)    
+    CALL Eigen2DSym_TryGenFirst(D,EigVals,EigVec)
 
 
     IF (EigVals(1) == EigVals(2)) THEN
@@ -8454,10 +8538,10 @@ CONTAINS
     REAL(KIND=dp) :: D(2,2)
     REAL(KIND=dp) :: CriticalDamage,DMax,CriticalDav
     REAL(KIND=dp) :: DMaxI,DMaxII,DMaxIII,RiftDmax
-    REAL(KIND=dp) :: DavDMaxI,DavDMaxII,DavDMaxIII    
+    REAL(KIND=dp) :: DavDMaxI,DavDMaxII,DavDMaxIII
     REAL(KIND=dp) :: TT,DD,lambda(3),en,sqrteig
-    REAL(KIND=dp) :: quart=0.25_dp,half=0.5_dp,thres=0.0001_dp,zero=0.0_dp    
-    REAL(KIND=dp) :: EigValues(3),EigValues2d(2),WORK(68),EigenVec(2,2),EigenVec2(2,2)      
+    REAL(KIND=dp) :: quart=0.25_dp,half=0.5_dp,thres=0.0001_dp,zero=0.0_dp
+    REAL(KIND=dp) :: EigValues(3),EigValues2d(2),WORK(68),EigenVec(2,2),EigenVec2(2,2)
     INTEGER :: infor,no,ii,jj,eigperm(3),maxloc1,midloc,minloc1,kk
     LOGICAL :: Visited = .FALSE.,rupt(3),useparticleeig
     TYPE(Model_t) :: Model
@@ -8478,7 +8562,7 @@ CONTAINS
 
        DavDmaxI = Particles % DavDmaxI
        DavDmaxII = Particles % DavDmaxII
-       DavDmaxIII = Particles % DavDmaxIII       
+       DavDmaxIII = Particles % DavDmaxIII
 
        RiftDmax = Particles % RiftDmax
 
@@ -8492,7 +8576,7 @@ CONTAINS
 
     D(1,1) = Particles % Dav(No,1)
     D(2,1) = Particles % Dav(No,4)
-    D(1,2) = Particles % Dav(No,4)    
+    D(1,2) = Particles % Dav(No,4)
     D(2,2) = Particles % Dav(No,2)
 
     TT = D(1,1)+D(2,2)
@@ -8501,9 +8585,9 @@ CONTAINS
     sqrteig = quart*TT*TT-DD
     IF (sqrteig<0.0_dp) sqrteig = 0.0_dp
     sqrteig = sqrt(sqrteig)
-    TT = half*TT    
+    TT = half*TT
     lambda(1)=TT+sqrteig
-    lambda(2)=TT-sqrteig      
+    lambda(2)=TT-sqrteig
     lambda(3) = Particles % Dav(No,3)
 
     IF (.NOT. (ANY(lambda < 0.0_dp) .OR. ANY(lambda > CriticalDav) )) RETURN
@@ -8538,7 +8622,7 @@ CONTAINS
        Particles % Dav(No,:) = 0.0_dp
 
        ! IF (Particles % useriftdmax) THEN
-       Particles % Dav(No,1:3) = RiftDmax 
+       Particles % Dav(No,1:3) = RiftDmax
        ! ELSE
        !    Particles % Dav(No,1:2) = DmaxI
        !    Particles % Dav(No,3) = DmaxIII
@@ -8563,7 +8647,7 @@ CONTAINS
              !use the layer's eigenvectors to determine
              !which direction to rupt.
 
-             CALL Eigen2DSym_TryGenFirst(D,EigValues2d,EigenVec2)             
+             CALL Eigen2DSym_TryGenFirst(D,EigValues2d,EigenVec2)
 
 
              IF (EigValues2d(1) == EigValues2d(2)) THEN
@@ -8594,7 +8678,7 @@ CONTAINS
           END IF
 
 
-          IF (rupt(1)) D(1,1) = DMaxII 
+          IF (rupt(1)) D(1,1) = DMaxII
           IF (rupt(2)) D(2,2) = DMaxI
 
           !rotate back A'TA
@@ -8623,8 +8707,8 @@ CONTAINS
     END IF
 
     IF (rupt(3)) THEN
-       Particles % Damage(No,:,3) = DmaxIII 
-       Particles % Dav(No,3) = DavDmaxIII 
+       Particles % Damage(No,:,3) = DmaxIII
+       Particles % Dav(No,3) = DavDmaxIII
     END IF
 
     IF (ANY(rupt)) THEN
@@ -8649,7 +8733,7 @@ CONTAINS
              D(1,1) = DavDMaxII
              D(2,2) = DavDMaxI
 
-             w = D(1,1)*EigenVec2(1,1) 
+             w = D(1,1)*EigenVec2(1,1)
              x = D(2,2)*EigenVec2(1,2)
              y = D(1,1)*EigenVec2(2,1)
              z = D(2,2)*EigenVec2(2,2)
@@ -8679,10 +8763,10 @@ CONTAINS
 
     D(1,1) = Particles % Dav(No,1)
     D(2,1) = Particles % Dav(No,4)
-    D(1,2) = Particles % Dav(No,4)    
-    D(2,2) = Particles % Dav(No,2)  
+    D(1,2) = Particles % Dav(No,4)
+    D(2,2) = Particles % Dav(No,2)
 
-    CALL Eigen2DSym_TryGenFirst(D,EigValues,DavEigenVec)    
+    CALL Eigen2DSym_TryGenFirst(D,EigValues,DavEigenVec)
 
     PRINT *,''
     PRINT *,'PARTICLE NO',No
@@ -8696,10 +8780,10 @@ CONTAINS
 
           D(1,1) = Particles % damage(No,ii,1)
           D(2,1) = Particles % damage(No,ii,4)
-          D(1,2) = Particles % damage(No,ii,4)    
+          D(1,2) = Particles % damage(No,ii,4)
           D(2,2) = Particles % damage(No,ii,2)
 
-          CALL Eigen2DSym_TryGenFirst(D,EigValues,EigenVec)          
+          CALL Eigen2DSym_TryGenFirst(D,EigValues,EigenVec)
 
 
           PRINT *,'layer',ii
@@ -8727,7 +8811,7 @@ CONTAINS
     REAL(KIND=dp) :: D(2,2),Dav(2,2),Dav3,davvec(4)
     LOGICAL :: Visited = .FALSE.,rupt
     REAL(KIND=dp) :: lminval,lmidval,lmaxval,half=1.0_dp/2.0_dp,denom,one=1.0_dp,zero=0.0_dp
-    REAL(KIND=dp) :: EigValues(2),DavEigValues(2),WORK(68),EigenVec(2,2),DavEigenVec(2,2)     
+    REAL(KIND=dp) :: EigValues(2),DavEigValues(2),WORK(68),EigenVec(2,2),DavEigenVec(2,2)
     INTEGER :: infor
     REAL(KIND=dp) :: w,x,y,z
 
@@ -8748,7 +8832,7 @@ CONTAINS
 
     ! Dav(1,1) = Particles % Dav(No,1)
     ! Dav(2,1) = Particles % Dav(No,4)
-    ! Dav(1,2) = Dav(2,1)   
+    ! Dav(1,2) = Dav(2,1)
     ! Dav(2,2) = Particles % Dav(No,2)
 
 
@@ -8761,14 +8845,14 @@ CONTAINS
 
     Dav(1,1) = davvec(1)
     Dav(2,1) = davvec(4)
-    Dav(1,2) = Dav(2,1)   
+    Dav(1,2) = Dav(2,1)
     Dav(2,2) = davvec(2)
 
     CALL Eigen2DSym_TryGenFirst(Dav,DavEigValues,DavEigenVec)
 
 
 
-    ! dont worry about rupturing Dav components at this point, as 
+    ! dont worry about rupturing Dav components at this point, as
     ! fixprincipaldamagevertint is called at the end, which will take care of it.
 
     ! ------ 2.  Get eigenvectors and eigenvalues for Damage on each layer ------
@@ -8782,7 +8866,7 @@ CONTAINS
 
        D(1,1) = Particles % Damage(No,ii,1)
        D(2,1) = Particles % Damage(No,ii,4)
-       D(1,2) = D(2,1)    
+       D(1,2) = D(2,1)
        D(2,2) = Particles % Damage(No,ii,2)
 
        !CALL Eigen2D(D,EigValues,EigenVec)
@@ -8796,7 +8880,7 @@ CONTAINS
        !same as above, but faster
        w = EigValues(1)*DavEigenVec(1,1)
        x = EigValues(2)*DavEigenVec(1,2)
-       y = EigValues(1)*DavEigenVec(2,1) 
+       y = EigValues(1)*DavEigenVec(2,1)
        z = EigValues(2)*DavEigenVec(2,2)
 
        D(1,1) = DavEigenVec(1,1)*w + DavEigenVec(1,2)*x
@@ -8856,15 +8940,15 @@ CONTAINS
 
     ! Dav = MATMUL(DavEigenVec,Dav); Dav = MATMUL(Dav,TRANSPOSE(DavEigenVec))
     ! same as above, but faster
-    w = Dav(1,1)*DavEigenVec(1,1) 
+    w = Dav(1,1)*DavEigenVec(1,1)
     x = Dav(2,2)*DavEigenVec(1,2)
-    y = Dav(1,1)*DavEigenVec(2,1) 
-    z = Dav(2,2)*DavEigenVec(2,2)    
+    y = Dav(1,1)*DavEigenVec(2,1)
+    z = Dav(2,2)*DavEigenVec(2,2)
 
     Dav(1,1) = DavEigenVec(1,1)*w + DavEigenVec(1,2)*x
     Dav(2,2) = DavEigenVec(2,1)*y + DavEigenVec(2,2)*z
     Dav(1,2) = DavEigenVec(2,1)*w + DavEigenVec(2,2)*x
-    Dav(2,1) = Dav(1,2)    
+    Dav(2,1) = Dav(1,2)
 
     Particles % Dav(No,1) = Dav(1,1)
     Particles % Dav(No,2) = Dav(2,2)
@@ -8882,10 +8966,10 @@ CONTAINS
   SUBROUTINE GetParticleLayerStressesforEllipse(Particles,No,numoflayers,pstressdir,pstress,&
        groundbasalwaterp,ellipsesthres)
 
-    IMPLICIT NONE    
+    IMPLICIT NONE
 
-    TYPE(Particle_t),  POINTER :: Particles     
-    REAL(KIND=dp) :: pstressdir(numoflayers,2,2),pstress(numoflayers,2),z 
+    TYPE(Particle_t),  POINTER :: Particles
+    REAL(KIND=dp) :: pstressdir(numoflayers,2,2),pstress(numoflayers,2),z
     REAL(KIND=dp) :: n,Eeexp,EFExp,zsrhs,MinSRInvSquared,rhowtimesgravity,rhoitimesgravity,&
          oneovernumoflayersminus1,Identity(3,3),psr(3,3),rhs,zs,ID(3,3),&
          ESR(3,3),Tau(2,2),IDn1(3,3),ETau(2,2),peff,eigvalues(2),eigenvec(2,2)
@@ -8893,7 +8977,7 @@ CONTAINS
     REAL(KIND=dp) :: one=1.0_dp,zero=0.0_dp,onethird=1.0_dp/3.0_dp,half=0.5_dp,&
          three=3.0_dp,onepfive=1.5_dp,two=2.0_dp,quart=0.25_dp, n3 = -3.0_dp
     REAL(KIND=dp) :: determ,dxx,dyy,dzz,dxy,ee,denom,ellipsesthres
-    REAL(KIND=dp) :: TT,DD 
+    REAL(KIND=dp) :: TT,DD
     INTEGER :: numoflayers,ii,No,whichsurf,start,finish,step
     LOGICAL :: Visited = .FALSE., groundbasalwaterp
     REAL(KIND=dp) :: eyyd2m1,exxd1m1,ezzd3m1,exyd4,taurhsmultthird
@@ -8901,13 +8985,13 @@ CONTAINS
     REAL(KIND=dp) :: k1,k2,maxtracesigma,Tau33,tracesigma,voutprod(3,3)
     REAL(KIND=dp) :: scalevec1(numoflayers)
     REAL(KIND=dp) :: kf,maxvec(3)
-    REAL(KIND=dp) :: TraceEtau, chi, ah, td1, Bh,pcont  
+    REAL(KIND=dp) :: TraceEtau, chi, ah, td1, Bh,pcont
 
     SAVE :: n,Eeexp,EFExp,zsrhs,minsrinvsquared,rhowtimesgravity,rhoitimesgravity,&
          oneovernumoflayersminus1,zref,maxtracesigma,k1,k2,Visited ,ah,Bh,pcont
 
     IF (.NOT. Visited) THEN
-       ! various variable shortcuts for damage calculations   
+       ! various variable shortcuts for damage calculations
        n = one/Particles % Viscosityexponent
        EeExp =  (one-n)/(two * n)
        EFexp = -one/n
@@ -8935,7 +9019,7 @@ CONTAINS
 
        ah = Particles % ah
        Bh = Particles % bh
-       pcont = one-ah-Bh       
+       pcont = one-ah-Bh
 
        Visited = .TRUE.
     END IF
@@ -8957,7 +9041,7 @@ CONTAINS
     RHS = (Ee**EeExp) * (Particles % EF(No)**EFexp)
     IF (Particles % Gmask(No) < zero) THEN
        zs = Particles % H(No)+Particles % Bedrock(No)
-    ELSE          
+    ELSE
        zs = Particles % H(No)*zsRHS
     END IF
 
@@ -9043,18 +9127,18 @@ CONTAINS
           ! denom = one/( Dxy*Dxy + Dxx + Dyy -Dxx*Dyy - one)
           ! t1d2m1 = Tau(1,1)*(Dyy-one)*denom
           ! t2d1m1 = Tau(2,2)*(Dxx-one)*denom
-          ! t3od3m1 = taurhsmultthird * (exxd1m1+eyyd2m1-two*ezzd3m1+two*exyd4)/(Dzz-one)     
+          ! t3od3m1 = taurhsmultthird * (exxd1m1+eyyd2m1-two*ezzd3m1+two*exyd4)/(Dzz-one)
           ! d4t4 = Tau(1,2)*Dxy*denom
 
-          ! Etau(1,1) = onethird*(two*t1d2m1 - t2d1m1 +t3od3m1 -d4t4) 
-          ! Etau(2,2) = onethird*(-t1d2m1 + two*t2d1m1 +t3od3m1 -d4t4) 
+          ! Etau(1,1) = onethird*(two*t1d2m1 - t2d1m1 +t3od3m1 -d4t4)
+          ! Etau(2,2) = onethird*(-t1d2m1 + two*t2d1m1 +t3od3m1 -d4t4)
           ! !Etau(3,3) = onethird*(-t1d2m1 - t2d1m1 - two*t3od3m1 + two*d4t4)
           ! Etau(1,2) = half*denom*(tau(1,2)*(Dxx+Dyy-two) - Dxy*(Tau(1,1)+Tau(2,2)))
           ! Etau(2,1) = Etau(1,2)
 
           ! ETau(1,1) = ETau(1,1) - Peff
           ! ETau(2,2) = ETau(2,2) - Peff
-          ! CALL Eigen2DSym_TryGenFirst(ETau,EigValues,EigenVec)          
+          ! CALL Eigen2DSym_TryGenFirst(ETau,EigValues,EigenVec)
 
           ! WHERE (EigValues < Particles % mindam) EigValues = Particles % mindam
 
@@ -9148,7 +9232,7 @@ CONTAINS
 
              !y test coords
              tcoords(2) = scoordsy(kk)
-             ! IF (ABS(tcoords(1)-mcoords(1)) < Particles % gridres*1.1_dp) CYCLE             
+             ! IF (ABS(tcoords(1)-mcoords(1)) < Particles % gridres*1.1_dp) CYCLE
              ElementIndNew = 0
              CALL LocateParticleInMeshOctree( ElementIndNew, tcoords )
 
@@ -9185,7 +9269,7 @@ CONTAINS
     IMPLICIT NONE
 
     TYPE(Particle_t),  POINTER :: Particles
-    TYPE(Mesh_t), POINTER :: Mesh    
+    TYPE(Mesh_t), POINTER :: Mesh
     INTEGER :: count,numoflayers,extracount,curcount
     REAL(KIND=dp) :: lc,gaussk,gridres,vertlc,ellipsesthres,fsquared
     LOGICAL ::  groundbasalwaterp,justusegaussian
@@ -9199,6 +9283,7 @@ CONTAINS
     REAL(KIND=dp),ALLOCATABLE :: ruptstat(:,:)
     INTEGER, POINTER :: eligperm(:)=>NULL()
     INTEGER,TARGET :: eligref(numoflayers)
+    REAL(KIND=dp) :: ruptstat2(numoflayers),match2(numoflayers)
     REAL(KIND=dp) :: match(numoflayers),lmaxval, edgescale
     INTEGER :: ElementInd,basalref,surfref,eliglayers,smoothlayers
     INTEGER :: No, CompNo, ii, jj, kk, j, ind, ind2, p, q, m, mm
@@ -9245,7 +9330,7 @@ CONTAINS
 
     ! now set each element max layers to max of surrounding elements within nonlocal range
     ElemTrack(:) % ddlayfrombottom2 = ElemTrack(:) % ddlayfrombottom1
-    ElemTrack(:) % ddlayfromtop2 = ElemTrack(:) % ddlayfromtop1    
+    ElemTrack(:) % ddlayfromtop2 = ElemTrack(:) % ddlayfromtop1
 
     DO ind = 1,Mesh % NumberOfBulkElements
        IF (ElemParticles(ind) % NumberOfParticles < 1) CYCLE
@@ -9297,7 +9382,7 @@ CONTAINS
                    CompCoord = Particles % Coordinate(CompNo,1:2)
 
                    dist = (CompCoord(1)-Coord(1))*(CompCoord(1)-Coord(1)) + &
-                        (CompCoord(2)-Coord(2))*(CompCoord(2)-Coord(2))                       
+                        (CompCoord(2)-Coord(2))*(CompCoord(2)-Coord(2))
                    !mark particle
                    IF (dist < lcsquared) THEN
                       tot = tot + one
@@ -9317,7 +9402,7 @@ CONTAINS
 
     ! -------------------------------------------------------------------
     ! 2: allocate space to calculate nonlocal contributions
-    ! -------------------------------------------------------------------    
+    ! -------------------------------------------------------------------
     IF (tot > zero) THEN
 
        ALLOCATE(nonlocdD(INT(tot),numoflayers,4))
@@ -9336,13 +9421,13 @@ CONTAINS
     ! -------------------------------------------------------------------
     ! 3: Particle loop: nonlocal contribution
     !    from No (current) to CompNo (surrounding)
-    ! -------------------------------------------------------------------    
+    ! -------------------------------------------------------------------
 
 
     DO No = 1, Particles % NumberOfParticles
 
-       count = INT(Particles % xpic(No,1))   
-       IF (count == 0) CYCLE
+       count = INT(Particles % xpic(No,1))
+       IF (count <= 0) CYCLE
 
        DO ii = 1,MIN(INT(Particles % xpic(No,5)),numoflayers)
           CALL MaxPFour(Particles % damage(No,ii,1:4),lmaxval)
@@ -9371,12 +9456,29 @@ CONTAINS
        ! IF (Particles % xpic(No,1) == zero) CYCLE
        ! IF (Particles % damstatus(No) == -1) CYCLE
 
+       !ADDED 2021---
+       !For 'extracount' particles (xpic(No,1)==-1), ruptstat is determined here
+       !and saved on ruptstat2
+       IF (curcount < 0 ) then
+          ruptstat2=zero
+          DO ii = 1,MIN(INT(Particles % xpic(No,5)),numoflayers)
+             CALL MaxPFour(Particles % damage(No,ii,1:4),lmaxval)
+             IF (lmaxval < Particles % criticaldamage) ruptstat2(ii) = 1.0_dp
+          END DO
+
+          DO ii = numoflayers,MAX(INT(Particles % xpic(No,6)),1),-1
+             CALL MaxPFour(Particles % damage(No,ii,1:4),lmaxval)
+             IF (lmaxval < Particles % criticaldamage) ruptstat2(ii) = 1.0_dp
+          END DO
+       ENDIF
+       !---
+
        IF (Particles % xpic(No,5) >= Particles % xpic(No,6)) THEN
           ! basal and surface crevasses overlap.
           Particles % xpic(No,5) = numoflayers
           Particles % xpic(No,6) = 0
 
-          eligref = (/(j,j=1,numoflayers)/)                    
+          eligref = (/(j,j=1,numoflayers)/)
           eligperm => eligref
 
           eliglayers = numoflayers
@@ -9458,7 +9560,7 @@ CONTAINS
              IF (Particles % Status(CompNo) > 4) CYCLE
 
              IF (Particles % xpic(CompNo,2) == No) CYCLE !already taken care of
-             Particles % xpic(CompNo,2) = No                
+             Particles % xpic(CompNo,2) = No
              IF (Particles % xpic(CompNo,1) <= zero) CYCLE
              !  IF (Particles % damstatus(No) .NE. Particles % damstatus(CompNo)) CYCLE
              ! IF (Particles % damstatus(CompNo) .EQ. -1) CYCLE
@@ -9489,12 +9591,19 @@ CONTAINS
                 END IF
              END IF
 
+             match = 0.0_dp
 
              count = INT(Particles % xpic(CompNo,1))
 
-             match = 0.0_dp
-             WHERE (ruptstat(curcount,:)== ruptstat(count,:)) match = 1.0_dp
-
+             !CHANGED 2021---
+             !WHERE (ruptstat(curcount,:)== ruptstat(count,:)) match = 1.0_dp
+             IF (curcount>0) then
+                WHERE (ruptstat(curcount,:)== ruptstat(count,:)) match = 1.0_dp
+             ELSE
+                match2 = ruptstat(count,:)
+                WHERE (match2(:)==ruptstat2(:)) match = 1.0_dp
+             ENDIF
+             !---
 
              IF (.NOT. justusegaussian) THEN
 
@@ -9507,13 +9616,13 @@ CONTAINS
                    rho(eligperm) = one !lcsquared
                 ELSE
                    diff(eligperm,1) = CompCoord(1)-Coord(1)
-                   diff(eligperm,2) = CompCoord(2)-Coord(2)            
+                   diff(eligperm,2) = CompCoord(2)-Coord(2)
 
-                   cosphi(eligperm) = SUM(diff(eligperm,:) * pstressdir(eligperm,1,1:2),DIM=2) 
+                   cosphi(eligperm) = SUM(diff(eligperm,:) * pstressdir(eligperm,1,1:2),DIM=2)
                    sinphi(eligperm) = SUM(diff(eligperm,:) * pstressdir(eligperm,2,1:2),DIM=2)
 
                    cosphi(eligperm) = cosphi(eligperm)*cosphi(eligperm)/phi
-                   sinphi(eligperm) = sinphi(eligperm)*sinphi(eligperm)/phi         
+                   sinphi(eligperm) = sinphi(eligperm)*sinphi(eligperm)/phi
 
                    !rho squared
                    rho(eligperm) = one / &
@@ -9545,19 +9654,19 @@ CONTAINS
              END IF
 
              nonlocdD(count,eligperm,1) = nonlocdD(count,eligperm,1) + &
-                  phivec(eligperm) * Particles % dD(No,eligperm,1) 
+                  phivec(eligperm) * Particles % dD(No,eligperm,1)
 
              nonlocdD(count,eligperm,2) = nonlocdD(count,eligperm,2) + &
-                  phivec(eligperm) * Particles % dD(No,eligperm,2) 
+                  phivec(eligperm) * Particles % dD(No,eligperm,2)
 
              nonlocdD(count,eligperm,3) = nonlocdD(count,eligperm,3) + &
-                  phivec(eligperm) * Particles % dD(No,eligperm,3) 
+                  phivec(eligperm) * Particles % dD(No,eligperm,3)
 
              nonlocdD(count,eligperm,4) = nonlocdD(count,eligperm,4) + &
-                  phivec(eligperm) * Particles % dD(No,eligperm,4)                  
+                  phivec(eligperm) * Particles % dD(No,eligperm,4)
 
              elldenom(count,eligperm,1) = elldenom(count,eligperm,1) + &
-                  phivec(eligperm) 
+                  phivec(eligperm)
 
 
           END DO
@@ -9566,18 +9675,18 @@ CONTAINS
 
     ! -------------------------------------------------------------------
     ! 4: Update Particles % dD based on nonlocal
-    ! -------------------------------------------------------------------  
+    ! -------------------------------------------------------------------
 
     elldenom(:,:,2) = elldenom(:,:,1)
     elldenom(:,:,3) = elldenom(:,:,1)
     elldenom(:,:,4) = elldenom(:,:,1)
 
 
-    WHERE (elldenom .NE. zero) nonlocdD = nonlocdD / elldenom     
+    WHERE (elldenom .NE. zero) nonlocdD = nonlocdD / elldenom
 
     DO No = 1, Particles % NumberOfParticles
        IF (Particles % xpic(No,1) <= zero) CYCLE
-       !  IF (Particles % damstatus(No) == -1) CYCLE       
+       !  IF (Particles % damstatus(No) == -1) CYCLE
        count = INT(Particles % xpic(No,1))
        Particles % dD(No,:,1:4) = nonlocdD(count,:,1:4)
 
@@ -9591,11 +9700,11 @@ CONTAINS
 
     ! -------------------------------------------------------------------
     ! 5: Vertical smoothing
-    ! -------------------------------------------------------------------      
+    ! -------------------------------------------------------------------
 
     IF (vertlc > 0) THEN
        lcsquared = vertlc*vertlc
-       phiparam = -gaussksquared/lcsquared      
+       phiparam = -gaussksquared/lcsquared
        DO No = 1, Particles % NumberOfParticles
           IF (Particles % xpic(No,1) <= zero) CYCLE
           y = (/(m,m=0,numoflayers-1,1)/)
@@ -9691,7 +9800,7 @@ CONTAINS
                       CompCoord = GetParticleCoord( Particles, CompNo)
 
                       dist = (CompCoord(1)-Coord(1))*(CompCoord(1)-Coord(1)) + &
-                           (CompCoord(2)-Coord(2))*(CompCoord(2)-Coord(2))                       
+                           (CompCoord(2)-Coord(2))*(CompCoord(2)-Coord(2))
                       !mark particle
                       IF (dist <= lcsquared) THEN
                          tot = tot + 1.0_dp
@@ -9747,7 +9856,7 @@ CONTAINS
                 !END IF
                 !
                 !
-                !              
+                !
                 !nonlocal between No and CompNo has already been taken care of.
                 IF (Particles % xpic(CompNo,2) == No) CYCLE
 
@@ -9795,7 +9904,7 @@ CONTAINS
        !  lc = vertlc
        lcsquared = vertlc*vertlc
        phiparam = -gaussk/lcsquared
-       ! dblesmoothlayers = DBLE(smoothlayers)       
+       ! dblesmoothlayers = DBLE(smoothlayers)
        DO No = 1, Particles % NumberOfParticles
           IF (Particles % xpic(No,1) == 0.0_dp) CYCLE
           y = (/(m,m=0,numoflayers-1,1)/)
@@ -9824,19 +9933,19 @@ CONTAINS
     DEALLOCATE(nonlocdD)
   END SUBROUTINE nonlocalintegraldD
 
-  !**************************************************************************  
+  !**************************************************************************
 
   SUBROUTINE smoothrupth(Particles, Mesh, lc, smoothiters)
 
     IMPLICIT NONE
 
     TYPE(Particle_t),  POINTER :: Particles
-    TYPE(Mesh_t), POINTER :: Mesh    
+    TYPE(Mesh_t), POINTER :: Mesh
     INTEGER :: No,ii,kk,jj,ind2,CompNo,ElementInd,smoothiters
     REAL(KIND=dp) :: Coord(2),CompCoord(2),phi,lc,gaussk=2.0_dp,lcs,gks,pm
     LOGICAL :: edge,edge2
     !,restarted=.FALSE.
-    REAL(KIND=dp) :: Coordreflecty,phi2    
+    REAL(KIND=dp) :: Coordreflecty,phi2
 
 
     CALL nonlocalsurroundelems(Particles,Mesh,lc)
@@ -9890,7 +9999,7 @@ CONTAINS
                 IF (CompNo==0) CYCLE
 
                 !already taken care of
-                IF (Particles % xpic(CompNo,1) == No) CYCLE 
+                IF (Particles % xpic(CompNo,1) == No) CYCLE
 
                 Particles % xpic(CompNo,1) = No
 
@@ -10006,7 +10115,7 @@ CONTAINS
     REAL(KIND=dp), POINTER :: PMVal(:)=>NULL()
     LOGICAL :: VISITED = .FALSE., GotIt, &
          firsttime,nodamfront,stat
-    REAL(KIND=dp),ALLOCATABLE :: Basis(:),dBasisdx(:,:)    
+    REAL(KIND=dp),ALLOCATABLE :: Basis(:),dBasisdx(:,:)
     INTEGER :: match,No2
     REAL(KIND=dp) :: dist
     LOGICAL :: CalvingFront
@@ -10022,7 +10131,7 @@ CONTAINS
 
     IF (.NOT. VISITED) THEN
 
-       WRITE(SolverName, '(A)') 'GetElemParticles_GIMPM'            
+       WRITE(SolverName, '(A)') 'GetElemParticles_GIMPM'
        ALLOCATE(Basis(4),dBasisdx(4,3))
        ALLOCATE(ElementNodes % x(4),ElementNodes % y(4),ElementNodes % z(4))
 
@@ -10031,7 +10140,7 @@ CONTAINS
 
        nodamfront = Particles % nodamfront
        CriticalDamage = Particles % CriticalDamage
-       CriticalDav = Particles % criticaldav          
+       CriticalDav = Particles % criticaldav
        gridres = Particles % gridres
        frac = Particles % elementfraction
 
@@ -10084,7 +10193,7 @@ CONTAINS
        ! | 4 | 5 | 6 |     !where the particle is in element 5
        ! |-----------|
        ! | 7 | 8 | 9 |
-       ! -------------     
+       ! -------------
 
        IF (ALLOCATED(ElemParticles)) DEALLOCATE(ElemParticles)
 
@@ -10150,7 +10259,7 @@ CONTAINS
              CASE (8)
                 TestCoords(1) = xc
                 TestCoords(2) = S
-             CASE (9)                   
+             CASE (9)
                 TestCoords(1) = E
                 TestCoords(2) = S
              END SELECT
@@ -10176,7 +10285,7 @@ CONTAINS
 
        WHERE (Particles % ElementIndex(:) == 0) Particles % Coordinate(:,1) = -HUGE(1.0_dp)
 
-       !Particles % Coordinate(:,1) = Particles % Coordinate(:,1) + 225.0_dp       
+       !Particles % Coordinate(:,1) = Particles % Coordinate(:,1) + 225.0_dp
     END IF
 
 
@@ -10230,7 +10339,7 @@ CONTAINS
              ElementIndNew = 0
           END IF
 
-          !          
+          !
        ELSE
 
 
@@ -10256,7 +10365,7 @@ CONTAINS
 
              N = ymax - Coord(2)
              S = Coord(2) - ymin
-             E = xmax - Coord(1) 
+             E = xmax - Coord(1)
              W = Coord(1) - xmin
 
              !we create test cases so that
@@ -10266,7 +10375,7 @@ CONTAINS
              !whichelem equals one of these spots:
 
              !     11 - 12 - 13
-             !     21 - 22 - 23 
+             !     21 - 22 - 23
              !     31 - 32 - 33
 
              whichelem = 22
@@ -10302,10 +10411,10 @@ CONTAINS
                 ElementIndNew = ElemParticles(ElementInd) % SurroundingElems(9)
              CASE (99)
                 ElementIndNew = ElementInd
-                CALL LocateParticleInMeshOctree( ElementIndNew, Coord ) 
+                CALL LocateParticleInMeshOctree( ElementIndNew, Coord )
              CASE DEFAULT
                 ElementIndNew = ElementInd
-                CALL LocateParticleInMeshOctree( ElementIndNew, Coord )  
+                CALL LocateParticleInMeshOctree( ElementIndNew, Coord )
              END SELECT
 
              IF (ElementIndNew > 0) THEN
@@ -10375,7 +10484,7 @@ CONTAINS
                 IF(N > ymax) in(2)=1
                 IF(S < ymin) in(8)=1
                 IF(E > xmax) in(6)=1
-                IF(W < xmin) in(4)=1                
+                IF(W < xmin) in(4)=1
 
                 IF (in(2) ==1 .AND. in(4)==1) in(1)=1
                 IF (in(2) ==1 .AND. in(6)==1) in(3)=1
@@ -10432,7 +10541,7 @@ CONTAINS
                    CASE (8)
                       GlobalCoords(1) = Coord(1)
                       GlobalCoords(2) = S
-                   CASE (9)                   
+                   CASE (9)
                       GlobalCoords(1) = E
                       GlobalCoords(2) = S
                    END SELECT
@@ -10485,7 +10594,7 @@ CONTAINS
                       Elems(8) = 0
                    END IF
 
-                   IF (W>480000.0_dp) Elems = 0                
+                   IF (W>480000.0_dp) Elems = 0
                 END IF
              END IF
 
@@ -10585,7 +10694,7 @@ CONTAINS
 
        !first some volume corrections if lost particles ended up in an element
        !this happens when locate particle in mesh octree is a little off and locates
-       !a leaving particle as being slightly within an element incorrectly. 
+       !a leaving particle as being slightly within an element incorrectly.
        tot = 0
 
        DO jj = 1,ElemParticles(ii) % NumberOfParticles
@@ -10622,7 +10731,7 @@ CONTAINS
              DO jj = 1,ElemParticles(ii) % NumberOfParticles
                 No = Ptable(jj)
                 IF (No > 0) THEN
-                   kk = kk+1                   
+                   kk = kk+1
                    ElemParticles(ii) % p(kk) = No
                 END IF
              END DO
@@ -10637,7 +10746,7 @@ CONTAINS
        !If they do overlap a FULL, then subtract their
        !volume from the NOTFULL element and set them to PARTICLE_LEAVING.
        !If the element isn't next to a full element, it is set to an IGNORE status.
-       !This shouldn't really happen if the front is smooth, but 
+       !This shouldn't really happen if the front is smooth, but
        !for IGNORE, subtract the element from particle volumes, set them to PARTICLE_LEAVING, or
        !particle lost if they have no volume.
 
@@ -10733,7 +10842,7 @@ CONTAINS
           Element => Mesh % Elements(ii)
           IF (.NOT. ASSOCIATED(Element) ) CYCLE
           NodeIndexes => Element % NodeIndexes
-          nn = Element % TYPE % NumberOfNodes          
+          nn = Element % TYPE % NumberOfNodes
 
           DO jj = 1,nn
              PMVal(PMPerm(NodeIndexes(jj))) = MAX(1.0_dp,PMVal(PMPerm(NodeIndexes(jj))))
@@ -10883,7 +10992,7 @@ CONTAINS
                       IF (ElemTrack(P1 % ElementIndex) % Status > IGNORE) THEN
                          ElemTrack(P1 % ElementIndex) % Status = FEM
                          NodeIndexes => P1 % NodeIndexes
-                         PMVal(PMPerm(NodeIndexes)) = 2.0_dp  
+                         PMVal(PMPerm(NodeIndexes)) = 2.0_dp
                       END IF
                    END IF
 
@@ -10891,7 +11000,7 @@ CONTAINS
                       IF (ElemTrack(P2 % ElementIndex) % Status > IGNORE) THEN
                          ElemTrack(P2 % ElementIndex) % Status = FEM
                          NodeIndexes => P2 % NodeIndexes
-                         PMVal(PMPerm(NodeIndexes)) = 2.0_dp                           
+                         PMVal(PMPerm(NodeIndexes)) = 2.0_dp
                       END IF
                    END IF
                 END IF
@@ -10921,7 +11030,7 @@ CONTAINS
     nn = 0
 
     ALLOCATE( Perm( Particles % NumberOfParticles))
-    Perm = 0    
+    Perm = 0
 
     DO No = 1,Particles % NumberOfParticles
 
@@ -10953,7 +11062,7 @@ CONTAINS
              IF (nn>0) THEN
                 ALLOCATE(Old(nn))
 
-                kk = 0             
+                kk = 0
 
                 DO jj = 1, ElemParticles(ii) % NumberOfParticles
 
@@ -10991,7 +11100,7 @@ CONTAINS
                 Element => Mesh % Elements(ii)
                 IF (.NOT. ASSOCIATED(Element) ) CYCLE
                 NodeIndexes => Element % NodeIndexes
-                PMVal(PMPerm(NodeIndexes)) = 2.0_dp             
+                PMVal(PMPerm(NodeIndexes)) = 2.0_dp
              END IF
           END IF
        END DO
@@ -11012,10 +11121,10 @@ CONTAINS
           IF (kk < 1) CYCLE
 
           ALLOCATE(ElemParticles(ii) % Basis(kk,4))
-          ALLOCATE(ElemParticles(ii) % dBasisdx(kk,4,3))       
+          ALLOCATE(ElemParticles(ii) % dBasisdx(kk,4,3))
 
           Element => Model % Mesh % Elements(ii)
-          NodeIndexes => Element % NodeIndexes 
+          NodeIndexes => Element % NodeIndexes
 
           CALL GetElementNodes(ElementNodes,Element)
 
@@ -11058,7 +11167,7 @@ CONTAINS
     INTEGER :: in(9), Elems(9),ElemVec(4),change,count,OldNoParticles
     INTEGER :: L,R,U,D,ii, nn, jj, kk,mm,pp,ne, No, Status,ElementInd,&
          ElementIndNew,istat,maxindex,tot,AddDam,whichelem,surroundelem,fulldamcount,nind,iter
-    INTEGER, POINTER :: NodeIndexes(:)=>NULL(),NextNodeIndexes(:)=>NULL(),PMPerm(:)=>NULL() 
+    INTEGER, POINTER :: NodeIndexes(:)=>NULL(),NextNodeIndexes(:)=>NULL(),PMPerm(:)=>NULL()
     INTEGER, allocatable :: elemcount(:),fulldam(:),frontedit(:),Old(:),Perm(:)
     INTEGER, POINTER :: N1, N2
     REAL(KIND=dp) :: LX,LY,N,S,E,W,xmin,xmax,ymin,ymax,yy,xx,AddVol,ElemVol,SumVol, &
@@ -11080,14 +11189,14 @@ CONTAINS
 
     IF (.NOT. VISITED) THEN
 
-       WRITE(SolverName, '(A)') 'GetElemParticles_sMPM' 
+       WRITE(SolverName, '(A)') 'GetElemParticles_sMPM'
        Mesh => GetMesh()
        ne = Mesh % NumberOfBulkElements
 
        nodamfront = Particles % nodamfront
        CriticalDamage = Particles % CriticalDamage
-       CriticalDav = Particles % criticaldav          
-       !  Dmax = Particles % dmax    
+       CriticalDav = Particles % criticaldav
+       !  Dmax = Particles % dmax
        gridres = Particles % gridres
        frac = Particles % elementfraction
 
@@ -11113,7 +11222,7 @@ CONTAINS
             Particles % Length(:,2)
        Particles % pvolume(:) = Particles % GVolume(:)
     END IF
-    
+
 
        CALL Info(Solvername,'allocating elemcount and ElemParticles',Level=4)
 
@@ -11128,7 +11237,7 @@ CONTAINS
        ! | 4 | 5 | 6 |     !where the particle is in element 5
        ! |-----------|
        ! | 7 | 8 | 9 |
-       ! -------------     
+       ! -------------
 
        IF (ALLOCATED(ElemParticles)) DEALLOCATE(ElemParticles)
 
@@ -11196,7 +11305,7 @@ CONTAINS
              CASE (8)
                 TestCoords(1) = xc
                 TestCoords(2) = S
-             CASE (9)                   
+             CASE (9)
                 TestCoords(1) = E
                 TestCoords(2) = S
              END SELECT
@@ -11281,7 +11390,7 @@ CONTAINS
           ElementInd = 0
        END IF
 
-       Particles % ElementIndex(No) = ElementInd      
+       Particles % ElementIndex(No) = ElementInd
 
        IF (ElementInd < 1) THEN
           Particles % Status(No) = PARTICLE_LOST
@@ -11289,7 +11398,7 @@ CONTAINS
     END DO
 
     ! must delete lost particles before assigning the particles to their new elements
-    CALL DeleteLostParticles( Particles )    
+    CALL DeleteLostParticles( Particles )
 
     ! determine how many particles in each element
     DO No = 1,Particles % NumberOfParticles
@@ -11317,7 +11426,7 @@ CONTAINS
     END DO
 
     ! assign particles to ElemParticle list, determine volume of particles in the element
-    elemcount = 0       
+    elemcount = 0
 
     DO No = 1, Particles % NumberOfParticles
        ElementInd = GetParticleElement( Particles, No )
@@ -11327,7 +11436,7 @@ CONTAINS
        ElemParticles(ElementInd) % p(elemcount(ElementInd)) = No
     END DO
 
-    !Set nodes of elements without particles to PMVal = -1 
+    !Set nodes of elements without particles to PMVal = -1
 
     DO ii = 1,ne
        IF (ElemTrack(ii) % Status > EMPTY) CYCLE
@@ -11395,7 +11504,7 @@ CONTAINS
        NodeIndexes => Element % NodeIndexes
 
        Model % CurrentElement => Model % Elements(ii)
-       noofn  = GetElementNOFNodes()       
+       noofn  = GetElementNOFNodes()
 
        IF (ABS(SUM(PMVal(PMPerm(NodeIndexes)))) .NE.  DBLE(noofn)) THEN
           ElemTrack(ii) % Status = FEM
@@ -11438,7 +11547,7 @@ CONTAINS
     TYPE(Variable_t), POINTER :: Vstar,Vk,H,VPlus,Vstar1,Vstar2,VelSol,PM
     TYPE(Model_t) :: Model
     TYPE(Nodes_t) :: ElementNodes
-    TYPE(Element_t), POINTER :: Element       
+    TYPE(Element_t), POINTER :: Element
     REAL(KIND=dp) :: dt
     INTEGER, POINTER :: VstarPerm(:),VkPerm(:),HPerm(:),VPlusPerm(:),&
          Vstar1Perm(:),Vstar2Perm(:),VelSolPerm(:),PMPerm(:)
@@ -11479,51 +11588,51 @@ CONTAINS
        ALLOCATE( VelSolLocalPerm(nn),  adtLocalField(nn,dim) )
 
        Vstar => VariableGet(Model % Mesh % Variables, 'Vstar' )
-       IF (.NOT. ASSOCIATED(Vstar)) CALL Fatal('xpic','Vstar does not exist ')          
+       IF (.NOT. ASSOCIATED(Vstar)) CALL Fatal('xpic','Vstar does not exist ')
        VstarPerm => Vstar % Perm
        VstarVal => Vstar % Values
        VstarVal = 0.0_dp
 
 
        Vplus => VariableGet(Model % Mesh % Variables, 'Vplus' )
-       IF (.NOT. ASSOCIATED(Vplus)) CALL Fatal('xpic','Vplus does not exist ')            
+       IF (.NOT. ASSOCIATED(Vplus)) CALL Fatal('xpic','Vplus does not exist ')
        VplusPerm => Vplus % Perm
        VplusVal => Vplus % Values
        VplusVal = 0.0_dp
 
        VelSol => VariableGet(Model % Mesh % Variables, 'SSAVelocity' )
-       IF (.NOT. ASSOCIATED(VelSol)) CALL Fatal('xpic','SSAVelocity does not exist ')            
+       IF (.NOT. ASSOCIATED(VelSol)) CALL Fatal('xpic','SSAVelocity does not exist ')
        VelSolPerm => VelSol % Perm
        VelSolVal => VelSol % Values
 
        Vk => VariableGet(Model % Mesh % Variables, 'PrevVel' )
-       IF (.NOT. ASSOCIATED(Vk)) CALL Fatal('xpic','PrevVel does not exist ')            
+       IF (.NOT. ASSOCIATED(Vk)) CALL Fatal('xpic','PrevVel does not exist ')
        VkPerm => Vk % Perm
        VkVal => Vk % Values
 
        H => VariableGet(Model % Mesh % Variables, 'H' )
-       IF (.NOT. ASSOCIATED(H)) CALL Fatal('xpic','H does not exist ')            
+       IF (.NOT. ASSOCIATED(H)) CALL Fatal('xpic','H does not exist ')
        HPerm => H % Perm
        HVal => H % Values
 
        Vstar1 => VariableGet(Model % Mesh % Variables, 'Vstar 1' )
-       IF (.NOT. ASSOCIATED(Vstar1)) CALL Fatal('xpic','Vstar does not exist ')          
+       IF (.NOT. ASSOCIATED(Vstar1)) CALL Fatal('xpic','Vstar does not exist ')
        Vstar1Perm => Vstar1 % Perm
        Vstar1Val => Vstar1 % Values
 
        Vstar2 => VariableGet(Model % Mesh % Variables, 'Vstar 2' )
-       IF (.NOT. ASSOCIATED(Vstar2)) CALL Fatal('xpic','Vstar does not exist ')          
+       IF (.NOT. ASSOCIATED(Vstar2)) CALL Fatal('xpic','Vstar does not exist ')
        Vstar2Perm => Vstar2 % Perm
        Vstar2Val => Vstar2 % Values
 
        PM => VariableGet( Model % Mesh % Variables, 'surface')
        PMValues => PM % Values
-       PMPerm => PM % Perm       
+       PMPerm => PM % Perm
 
        Visited = .TRUE.
     END IF
 
-    CALL Info('xpic','Assigning new velocities and next coords to particles...',Level=1)  
+    CALL Info('xpic','Assigning new velocities and next coords to particles...',Level=1)
 
     mm = DBLE(m)
 
@@ -11531,18 +11640,18 @@ CONTAINS
 
     !INITIALIZATION
     !vplus starts (r = 1) by equaling prevvel...
-    VplusVal(2*(VplusPerm(:)-1)+1) = VkVal(2*(VkPerm(:)-1)+1) 
+    VplusVal(2*(VplusPerm(:)-1)+1) = VkVal(2*(VkPerm(:)-1)+1)
     VplusVal(2*(VplusPerm(:)-1)+2) = VkVal(2*(VkPerm(:)-1)+2)
 
     VstarVal = 0.0_dp
 
-    Particles % xpic = 0.0_dp    
+    Particles % xpic = 0.0_dp
 
     !LOOPS
     DO r = 2,m
 
        !multiply by the r and m function
-       rr = DBLE(r)       
+       rr = DBLE(r)
 
        !vplus(r-1) from mesh  to particles. 3 is a dumy
        CALL MPMMeshVectorToParticle( Particles, Model, 4, 3)
@@ -11556,7 +11665,7 @@ CONTAINS
        rr = (mm-rr+1.0_dp)/rr
 
        VplusVal(2*(VplusPerm(:)-1)+1) = rr * VplusVal(2*(VplusPerm(:)-1)+1)
-       VplusVal(2*(VplusPerm(:)-1)+2) = rr * VplusVal(2*(VplusPerm(:)-1)+2)     
+       VplusVal(2*(VplusPerm(:)-1)+2) = rr * VplusVal(2*(VplusPerm(:)-1)+2)
 
        VstarVal(2*(VstarPerm(:)-1)+1) = VstarVal(2*(VstarPerm(:)-1)+1) + bb * VplusVal(2*(VplusPerm(:)-1)+1)
        VstarVal(2*(VstarPerm(:)-1)+2) = VstarVal(2*(VstarPerm(:)-1)+2) + bb * VplusVal(2*(VplusPerm(:)-1)+2)
@@ -11583,7 +11692,7 @@ CONTAINS
 
     DO jj = 1,m-1
        DO ii = 1,nb
-          IF ( ElemTrack(ii) % Status < FEM ) CYCLE   
+          IF ( ElemTrack(ii) % Status < FEM ) CYCLE
           Element => Model % Mesh % Elements(ii)
           NodeIndexes => Element % NodeIndexes
 
@@ -11600,7 +11709,7 @@ CONTAINS
     DO ii = 1,nb
 
        !only use full elements
-       IF ( ElemTrack(ii) % Status < FEM ) CYCLE   
+       IF ( ElemTrack(ii) % Status < FEM ) CYCLE
 
        Element => Model % Mesh % Elements(ii)
        NodeIndexes => Element % NodeIndexes
@@ -11619,7 +11728,7 @@ CONTAINS
              !   VkLocalFied(kk,jj) = VkVal(2*(VkLocalPerm(kk)-1)+jj)
 
              adtLocalField(kk,jj) = VelSolVal(2*(VelSolLocalPerm(kk)-1)+jj) - &
-                  VkVal(2*(VkLocalPerm(kk)-1)+jj)           
+                  VkVal(2*(VkLocalPerm(kk)-1)+jj)
           END DO
        END DO
 
@@ -11631,17 +11740,17 @@ CONTAINS
                   detJ, scale, .TRUE., Basis,dBasisdx)
 
              Basis = Basis*scale
-          ELSE      
+          ELSE
 
              stat = sMPMElementInfo( Element,Particles, Model, ElementNodes, No, &
-                  Particles % gridres, Basis,dBasisdx)             
+                  Particles % gridres, Basis,dBasisdx)
              scale = 1.0_dp
           END IF
 
 
           ! IF (ElemTrack(ii) % Status > FEM) THEN
           ! IF (ALL(PMValues(PMPerm(Element % NodeIndexes)) .NE. 2)) THEN
-          !S(a_ex^k) 
+          !S(a_ex^k)
           DO kk = 1,2
              Particles % xpic(No,kk) = Particles % xpic(No,kk) + &
                   mm*SUM(Basis(1:nn) * VstarLocalField(1:nn,kk)) - &
@@ -11659,13 +11768,13 @@ CONTAINS
           !S(v^k+)
           DO kk = 3,4
              Particles % xpic(No,kk) = Particles % xpic(No,kk) + &
-                  SUM(Basis(1:nn) * VsolLocalField(1:nn,kk-2)) 
+                  SUM(Basis(1:nn) * VsolLocalField(1:nn,kk-2))
           END DO
 
           !S(v^(k+) - v^(k))
           DO kk = 5,6
              Particles % xpic(No,kk) = Particles % xpic(No,kk) + &
-                  SUM(Basis(1:nn) * adtLocalField(1:nn,kk-4)) 
+                  SUM(Basis(1:nn) * adtLocalField(1:nn,kk-4))
           END DO
        END DO
     END DO
@@ -11685,7 +11794,7 @@ CONTAINS
 
     Particles % xpic = 0.0_dp
 
-    CALL Info('xpic','Done.',Level=1)         
+    CALL Info('xpic','Done.',Level=1)
 
   END SUBROUTINE XPIC
 
@@ -11703,7 +11812,7 @@ CONTAINS
     REAL(KIND=dp) ::w,x,y,z
     INTEGER :: ii
     REAL(KIND=dp) :: layerdmax,layerdmax2,sqrteig
-    TYPE(Particle_t), POINTER :: Particles    
+    TYPE(Particle_t), POINTER :: Particles
     LOGICAL :: Visited=.FALSE.
 
     SAVE :: Particles,Visited,layerdmax
@@ -11711,14 +11820,16 @@ CONTAINS
 
     IF (.NOT. Visited) THEN
        Particles => GlobalParticles
-       layerdmax = Particles % DmaxI 
+       layerdmax = Particles % DmaxI
     END IF
 
     !check eigenvalues
     IF (Particles % currentGamma == zero) THEN
        IF (Din(1) >= CriticalDamage) THEN
           Din(1:2) = Particles % DmaxI
-          Din(3) = Particles % DmaxIII
+          IF (.NOT. Particles % nodzz) THEN
+             Din(3) = Particles % DmaxIII
+          END IF
        END IF
 
        IF (Din(1) < zero) Din = zero
@@ -11750,7 +11861,7 @@ CONTAINS
 
     D(1,1) = Din(1)
     D(2,1) = Din(4)
-    D(1,2) = Din(4)    
+    D(1,2) = Din(4)
     D(2,2) = Din(2)
 
     IF (Din(4)==zero) THEN
@@ -11758,10 +11869,10 @@ CONTAINS
        EigVals(2) = lambda(1)
 
        IF (Din(2)>Din(1)) THEN
-          EigVec(1,1) = one 
-          EigVec(2,1) = zero 
-          EigVec(1,2) = zero 
-          EigVec(2,2) = one 
+          EigVec(1,1) = one
+          EigVec(2,1) = zero
+          EigVec(1,2) = zero
+          EigVec(2,2) = one
        ELSE
           EigVec(1,1) = zero
           EigVec(2,1) = one
@@ -11774,7 +11885,7 @@ CONTAINS
           CALL Eigen2D(D,EigVals,EigVec)
        ELSE
           EigVals(1) = lambda(2)
-          EigVals(2) = lambda(1)       
+          EigVals(2) = lambda(1)
 
           !first eigenvector
           EigVec(1,2)=Din(4)
@@ -11830,10 +11941,16 @@ CONTAINS
           !  IF (diff1 > zero) THEN
           diff2 = (1.0_dp - Particles % TempGamma) * diff1
           EigVals(1) = EigVals(1)+diff2
-          D3 = D3 + diff2
+          IF (.NOT. Particles % noDzz) THEN
+             D3 = D3 + diff2
+          ENDIF
           ! END IF
           EigVals(2) = layerdmax
+
+          IF (Particles % forcedzz) D3 = Particles % DmaxIII
        END IF
+
+
     END IF
 
 
@@ -11843,7 +11960,7 @@ CONTAINS
 
     IF (EigVals(1)< zero) EigVals(1) = zero
     IF (EigVals(2)< zero) EigVals(2) = zero
-    IF (D3 < zero) D3 = zero    
+    IF (D3 < zero) D3 = zero
 
 
     ! D = zero; D(1,1) = EigVals(1); D(2,2) = EigVal(2)
@@ -11859,7 +11976,7 @@ CONTAINS
     Din(1) = EigVec(1,1)*w + EigVec(1,2)*x
     Din(2) = EigVec(2,1)*y + EigVec(2,2)*z
     Din(3) = D3
-    Din(4) = EigVec(2,1)*w + EigVec(2,2)*x        
+    Din(4) = EigVec(2,1)*w + EigVec(2,2)*x
 
   END SUBROUTINE FixPrincipalDamage
 
@@ -11877,7 +11994,7 @@ CONTAINS
     REAL(KIND=dp) ::w,x,y,z,a,b,c
     INTEGER :: ii
     REAL(KIND=dp) :: Dmax,dmax2,dmax3,sqrteig
-    TYPE(Particle_t), POINTER :: Particles    
+    TYPE(Particle_t), POINTER :: Particles
     LOGICAL :: Visited=.FALSE.,rupt
 
     SAVE :: Particles,Visited,Dmax,Dmax2,Dmax3
@@ -11896,7 +12013,9 @@ CONTAINS
     IF (Particles % currentGamma == zero) THEN
        IF (Din(1) >= Dmax) THEN
           Din(1:2) = Particles % DmaxI
-          Din(3) = Particles % DmaxIII
+          IF (.NOT. Particles % nodzz) THEN
+             Din(3) = Particles % DmaxIII
+          END IF
        END IF
 
        IF (Din(1) < zero) Din = zero
@@ -11917,7 +12036,7 @@ CONTAINS
 
        lambda(1)=TT+sqrteig
        lambda(2)=TT-sqrteig
-       lambda(3) = Din(3)  
+       lambda(3) = Din(3)
 
 
        Particles % bmd = MIN(lambda(1),Dmax)
@@ -11942,17 +12061,17 @@ CONTAINS
 
        D(1,1) = Din(1)
        D(2,1) = Din(4)
-       D(1,2) = Din(4)    
+       D(1,2) = Din(4)
        D(2,2) = Din(2)
 
        IF (Din(4)==zero) THEN
           EigVals(1) = lambda(2)
           EigVals(2) = lambda(1)
           IF (Din(2)>Din(1)) THEN
-             EigVec(1,1) = one 
-             EigVec(2,1) = zero 
-             EigVec(1,2) = zero 
-             EigVec(2,2) = one 
+             EigVec(1,1) = one
+             EigVec(2,1) = zero
+             EigVec(1,2) = zero
+             EigVec(2,2) = one
           ELSE
              EigVec(1,1) = zero
              EigVec(2,1) = one
@@ -11966,10 +12085,10 @@ CONTAINS
              !precision/overflow/underflow issues under these conditions
              CALL Eigen2D(D,EigVals,EigVec)
           ELSE
-             ! CALL Eigen2D(D,EigValues2d,EigenVec)          
+             ! CALL Eigen2D(D,EigValues2d,EigenVec)
              !general solution (returning with smallest eigvalues first)
              EigVals(1) = lambda(2)
-             EigVals(2) = lambda(1)       
+             EigVals(2) = lambda(1)
 
              !first eigenvector
              EigVec(1,2)=Din(4)
@@ -11991,7 +12110,7 @@ CONTAINS
        IF (Din(3) > Dmax3) Din(3) = Dmax3
        IF (EigVals(1) < zero) EigVals(1) = zero
        IF (EigVals(2) < zero) EigVals(2) = zero
-       IF (Din(3) < zero) Din(3) = zero       
+       IF (Din(3) < zero) Din(3) = zero
 
        w = EigVals(1)*EigVec(1,1)
        x = EigVals(2)*EigVec(1,2)
@@ -12000,7 +12119,7 @@ CONTAINS
 
        Din(1) = EigVec(1,1)*w + EigVec(1,2)*x
        Din(2) = EigVec(2,1)*y + EigVec(2,2)*z
-       Din(4) = EigVec(2,1)*w + EigVec(2,2)*x      
+       Din(4) = EigVec(2,1)*w + EigVec(2,2)*x
 
     ELSE
 
@@ -12063,7 +12182,7 @@ CONTAINS
           sqrteig = sqrt(sqrteig)
           TT = half*TT
 
-          lambda(1)=TT+sqrteig     
+          lambda(1)=TT+sqrteig
           lambda(2)=TT-sqrteig
           lambda(3) = Din(3)
 
@@ -12071,17 +12190,17 @@ CONTAINS
 
        D(1,1) = Din(1)
        D(2,1) = Din(4)
-       D(1,2) = Din(4)    
+       D(1,2) = Din(4)
        D(2,2) = Din(2)
 
        IF (Din(4)==zero) THEN
           EigVals(1) = lambda(2)
           EigVals(2) = lambda(1)
           IF (Din(2)>Din(1)) THEN
-             EigVec(1,1) = one 
-             EigVec(2,1) = zero 
-             EigVec(1,2) = zero 
-             EigVec(2,2) = one 
+             EigVec(1,1) = one
+             EigVec(2,1) = zero
+             EigVec(1,2) = zero
+             EigVec(2,2) = one
           ELSE
              EigVec(1,1) = zero
              EigVec(2,1) = one
@@ -12095,10 +12214,10 @@ CONTAINS
              !precision/overflow/underflow issues under these conditions
              CALL Eigen2D(D,EigVals,EigVec)
           ELSE
-             ! CALL Eigen2D(D,EigValues2d,EigenVec)          
+             ! CALL Eigen2D(D,EigValues2d,EigenVec)
              !general solution (returning with smallest eigvalues first)
              EigVals(1) = lambda(2)
-             EigVals(2) = lambda(1)       
+             EigVals(2) = lambda(1)
 
              !first eigenvector
              EigVec(1,2)=Din(4)
@@ -12120,7 +12239,7 @@ CONTAINS
        IF (Din(3) > Dmax3) Din(3) = Dmax3
        IF (EigVals(1) < zero) EigVals(1) = zero
        IF (EigVals(2) < zero) EigVals(2) = zero
-       IF (Din(3) < zero) Din(3) = zero         
+       IF (Din(3) < zero) Din(3) = zero
 
        w = EigVals(1)*EigVec(1,1)
        x = EigVals(2)*EigVec(1,2)
@@ -12129,7 +12248,7 @@ CONTAINS
 
        Din(1) = EigVec(1,1)*w + EigVec(1,2)*x
        Din(2) = EigVec(2,1)*y + EigVec(2,2)*z
-       Din(4) = EigVec(2,1)*w + EigVec(2,2)*x         
+       Din(4) = EigVec(2,1)*w + EigVec(2,2)*x
 
     END IF
 
@@ -12148,8 +12267,8 @@ CONTAINS
     TYPE(Particle_t), POINTER :: Particles
 
     IF (Particles % Gamma > zero) THEN
-       f12rhs = D(4) * (Particles % dvdxmdudy)  
-       !spin contribution 
+       f12rhs = D(4) * (Particles % dvdxmdudy)
+       !spin contribution
        f(1) = -f12rhs
        f(2) = f12rhs
        f(3) = zero
@@ -12177,12 +12296,12 @@ CONTAINS
 
        ww = EigVals(1)*EigenVec(1,1)
        xx = EigVals(2)*EigenVec(1,2)
-       yy = EigVals(1)*EigenVec(2,1) 
+       yy = EigVals(1)*EigenVec(2,1)
        zz = EigVals(2)*EigenVec(2,2)
 
        dD(1) = EigenVec(1,1)*ww + EigenVec(1,2)*xx
        dD(2) = EigenVec(2,1)*yy + EigenVec(2,2)*zz
-       dD(3) = EigVals(1)                
+       dD(3) = EigVals(1)
        dD(4) = EigenVec(2,1)*ww + EigenVec(2,2)*xx
 
        dD = dD + f
@@ -12201,7 +12320,7 @@ CONTAINS
   !! (here, SSA ice creep damage from Huth and others, 2020)
   !! integrates from t=a to t=b with the initial conditions in y
   !! Step length automatically adjusts so that absolute error estimate <= tol
-  SUBROUTINE runge_kutta_merson(Particles,Din,dD,a,b,tol,ifail,ddscale)    
+  SUBROUTINE runge_kutta_merson(Particles,Din,dD,a,b,tol,ifail,ddscale)
 
     !edited from:
     !Chivers and Sleightholme
@@ -12215,15 +12334,15 @@ CONTAINS
 
     TYPE(Particle_t), POINTER :: Particles
     REAL(KIND=dp), INTENT (out), DIMENSION (4) :: dD
-    REAL(KIND=dp), INTENT (in) :: a, b, tol 
-    REAL(KIND=dp), INTENT (in) :: Din(4) 
+    REAL(KIND=dp), INTENT (in) :: a, b, tol
+    REAL(KIND=dp), INTENT (in) :: Din(4)
     INTEGER, INTENT (out) :: ifail
     REAL(KIND=dp), INTENT (out) :: ddscale
     REAL(KIND=dp), DIMENSION (4) :: s1, s2, s3, s4, s5,&
          r1,r2,r3,r4,r5,new_D_1, old_D_1,new_D_2, error,Dinit,D,inc,rinc
     REAL(KIND=dp), DIMENSION (2,2) :: D2, EigVec
     REAL(KIND=dp), DIMENSION (2) :: EigVal
-    REAL(KIND=dp) :: t, hh, hh2, hh3, hh6, hh8, w,x,y,z,factor 
+    REAL(KIND=dp) :: t, hh, hh2, hh3, hh6, hh8, w,x,y,z,factor
     REAL(KIND=dp) :: max_error, smallest_step = 1.e-15_dp,rupttime
     INTEGER :: k,no_of_steps = 0,stoptimes = 1,ii
     LOGICAL :: Visited=.false.,torupt,rupted = .FALSE.
@@ -12269,7 +12388,7 @@ CONTAINS
     END IF
 
     t = a
-    hh = (b-a)*firststep  
+    hh = (b-a)*firststep
     Dinit = Din
     D = Din
 
@@ -12285,7 +12404,7 @@ CONTAINS
        hh2 = hh*div2
        hh3 = hh*div3
        hh6 = hh*div6
-       hh8 = hh*div8  
+       hh8 = hh*div8
 
        !-------------S1--------------!
        ! calculate s1,s2,s3,s4,s5
@@ -12321,12 +12440,12 @@ CONTAINS
        new_D_1 = D + inc
        CALL FixPrincipalDamageInc(new_D_1,inc,rinc)
 
-       !-------------S4--------------!       
+       !-------------S4--------------!
        ! s4=f(t+h/2,D+h/8*(s2+3*s3))
        CALL dDdtfast(new_D_1,s4,r4)
        inc = hh2*(s1-3.0_dp*s3+4.0_dp*s4)
        rinc = hh2*(r1-3.0_dp*r3+4.0_dp*r4)
-       new_D_1 = D + inc     
+       new_D_1 = D + inc
        CALL FixPrincipalDamageInc(new_D_1,inc,rinc)
 
        !-------------S5--------------!
@@ -12336,7 +12455,7 @@ CONTAINS
        ! calculate values at t+h
        inc =  hh2*(s1-3.0_dp*s3+4.0_dp*s4)
        rinc = hh2*(r1-3.0_dp*r3+4.0_dp*r4)
-       new_D_2 = D + inc    
+       new_D_2 = D + inc
        IF (Particles % prupt) THEN
           CALL FixPrincipalDamageInc(new_D_2,inc,rinc)
        ELSE
@@ -12344,10 +12463,10 @@ CONTAINS
           Particles % prupt = .FALSE.
        END IF
 
-       old_D_1 = new_D_1       
+       old_D_1 = new_D_1
        inc =  hh6*(s1+4.0_dp*s4+s5)
        rinc = hh6*(r1+4.0_dp*r4+r5)
-       new_D_1 = D + inc     
+       new_D_1 = D + inc
        CALL FixPrincipalDamageInc(new_D_1,inc,rinc)
 
        IF (ANY(new_D_1 .NE. new_D_1)) THEN
@@ -12429,7 +12548,7 @@ CONTAINS
 
           dD = D - Dinit
 
-          ddscale = 1.0_dp       
+          ddscale = 1.0_dp
 
           !added 10/2/19
           IF (ALL(Dinit == 0.0_dp)) THEN
@@ -12451,8 +12570,8 @@ CONTAINS
   !! Step length automatically adjusts so that absolute error estimate <= tol
   !! This version is edited for solving ice damage according to the zero-stress
   !! damage necking/mass balance modification (Bassis and Ma, 2015; Sun et al 2017;
-  !! Huth et al 2020)  
-  SUBROUTINE runge_kutta_merson_bassis(Particles,Din,dD,a,b,tol,RHS,S0,ifail,Hin,divu,mb,bmb)    
+  !! Huth et al 2020)
+  SUBROUTINE runge_kutta_merson_bassis(Particles,Din,dD,a,b,tol,RHS,S0,ifail,Hin,divu,mb,bmb)
 
     !edited from:
     !Chivers and Sleightholme
@@ -12464,7 +12583,7 @@ CONTAINS
 
     TYPE(Particle_t), POINTER :: Particles
     REAL(KIND=dp), INTENT (out), DIMENSION (4) :: dD
-    REAL(KIND=dp), INTENT (in) :: a, b, tol,RHS,S0,bmb 
+    REAL(KIND=dp), INTENT (in) :: a, b, tol,RHS,S0,bmb
     REAL(KIND=dp), INTENT (in) :: Din(4),divu,mb
     REAL(KIND=dp), INTENT (inout) :: Hin
     INTEGER, INTENT (out) :: ifail
@@ -12518,7 +12637,7 @@ CONTAINS
     END IF
 
     t = a
-    hh = (b-a)*firststep  
+    hh = (b-a)*firststep
     Dinit = Din
     D = Din
     H = Hin
@@ -12529,7 +12648,7 @@ CONTAINS
        hh2 = hh*div2
        hh3 = hh*div3
        hh6 = hh*div6
-       hh8 = hh*div8  
+       hh8 = hh*div8
 
        !-------------S1--------------!
        ! calculate s1,s2,s3,s4,s5
@@ -12549,7 +12668,7 @@ CONTAINS
        !-------------S2--------------!
        ! s2 = f(t+h/3,D+h/3*s1)
        Sb = S0 * hnew/(1.0_dp-Particles % bmd)
-       RHS1 = RHS * (one-Sb) - bMB/hnew       
+       RHS1 = RHS * (one-Sb) - bMB/hnew
        CALL bassisinc(Particles,new_D_1,RHS1,r2,s2)
        h2 = mb-hnew*divu
        inc = hh6*s1 + hh6*s2
@@ -12562,7 +12681,7 @@ CONTAINS
        !-------------S3--------------!
        ! s3=f(t+h/3,D+h/6*s1+h/6*s2)
        Sb = S0 * hnew/(1.0_dp-Particles % bmd)
-       RHS1 = RHS * (one-Sb) - bMB/hnew 
+       RHS1 = RHS * (one-Sb) - bMB/hnew
        CALL bassisinc(Particles,new_D_1,RHS1,r3,s3)
        h3 = mb-hnew*divu
        inc = hh8*(s2+3.0_dp*s3)
@@ -12572,29 +12691,29 @@ CONTAINS
        CALL FixPrincipalDamageInc(new_D_1,inc,rinc)
        hnew = MAX(H + hinc,one)
 
-       !-------------S4--------------!       
+       !-------------S4--------------!
        ! s4=f(t+h/2,D+h/8*(s2+3*s3))
        Sb = S0 * hnew/(1.0_dp-Particles % bmd)
-       RHS1 = RHS * (one-Sb) - bMB/hnew 
+       RHS1 = RHS * (one-Sb) - bMB/hnew
        CALL bassisinc(Particles,new_D_1,RHS1,r4,s4)
        h4 = mb-hnew*divu
        inc = hh2*(s1-3.0_dp*s3+4.0_dp*s4)
        rinc = hh2*(r1-3.0_dp*r3+4.0_dp*r4)
        hinc = hh2*(h1-3.0_dp*h3+4.0_dp*h4)
-       new_D_1 = D + inc       
+       new_D_1 = D + inc
        CALL FixPrincipalDamageInc(new_D_1,inc,rinc)
        hnew = MAX(H + hinc,one)
 
        !-------------S5--------------!
        ! s5=f(t+h,D+h/2*(s1-3*s3+4*s4))
        Sb = S0 * hnew/(1.0_dp-Particles % bmd)
-       RHS1 = RHS * (one-Sb) - bMB/hnew 
+       RHS1 = RHS * (one-Sb) - bMB/hnew
        CALL bassisinc(Particles,new_D_1,RHS1,r5,s5)
        h5 = mb-hnew*divu
        ! calculate values at t+h
        inc = hh2*(s1-3.0_dp*s3+4.0_dp*s4)
        rinc = hh2*(r1-3.0_dp*r3+4.0_dp*r4)
-       new_D_2 = D + inc      
+       new_D_2 = D + inc
        IF (Particles % prupt) THEN
           CALL FixPrincipalDamageInc(new_D_2,inc,rinc)
        ELSE
@@ -12605,7 +12724,7 @@ CONTAINS
        inc = hh6*(s1+4.0_dp*s4+s5)
        rinc = hh6*(r1+4.0_dp*r4+r5)
        hinc = hh6*(h1+4.0_dp*h4+h5)
-       new_D_1 = D + inc       
+       new_D_1 = D + inc
        CALL FixPrincipalDamageInc(new_D_1,inc,rinc)
        hnew = MAX(H + hinc,one)
 
@@ -12679,18 +12798,18 @@ CONTAINS
   !! Particles % DmaxII>Particles % DmaxI (Particles % dmaxII_dom == .TRUE.)
   !! Simply evolve the damage using the spin tensor, as there should only
   !! be a directional change in damage.
-  !! CAUTION: may not work with recent changes?  
-  SUBROUTINE runge_kutta_merson_fulldam_dmaxIIdom(Particles,Din,dD,a,b,tol,ifail)    
+  !! CAUTION: may not work with recent changes?
+  SUBROUTINE runge_kutta_merson_fulldam_dmaxIIdom(Particles,Din,dD,a,b,tol,ifail)
 
     IMPLICIT NONE
 
     TYPE(Particle_t), POINTER :: Particles
     REAL(KIND=dp), INTENT (out), DIMENSION (4) :: dD
-    REAL(KIND=dp), INTENT (in) :: a, b, tol 
-    REAL(KIND=dp), INTENT (in) :: Din(4) 
+    REAL(KIND=dp), INTENT (in) :: a, b, tol
+    REAL(KIND=dp), INTENT (in) :: Din(4)
     INTEGER, INTENT (out) :: ifail
     REAL(KIND=dp), DIMENSION (4) :: s1, s2, s3, s4, s5, new_D_1, new_D_2, error,Dinit,D
-    REAL(KIND=dp) :: t, hh, hh2, hh3, hh6, hh8, factor 
+    REAL(KIND=dp) :: t, hh, hh2, hh3, hh6, hh8, factor
     REAL(KIND=dp) :: max_error, smallest_step = 1.e-15_dp
     INTEGER :: k,no_of_steps = 0,stoptimes = 1
     LOGICAL :: Visited=.false.
@@ -12715,7 +12834,7 @@ CONTAINS
        div6 = 1.0_dp/6.0_dp
        div8 = 1.0_dp/8.0_dp
 
-       factor = 1.e-2_dp 
+       factor = 1.e-2_dp
 
        Visited = .TRUE.
     END IF
@@ -12731,7 +12850,7 @@ CONTAINS
     END IF
 
     t = a
-    hh = (b-a)*firststep  
+    hh = (b-a)*firststep
     Dinit = Din
     D = Din
 
@@ -12739,18 +12858,18 @@ CONTAINS
        hh2 = hh*div2
        hh3 = hh*div3
        hh6 = hh*div6
-       hh8 = hh*div8  
+       hh8 = hh*div8
 
        !-------------S1--------------!
        ! calculate s1,s2,s3,s4,s5
        ! s1=f(t,D)
        ! CALL dDdt(D,s1)
 
-       s1(1) = -D(4)                
-       s1(2) =  D(4) 
+       s1(1) = -D(4)
+       s1(2) =  D(4)
        s1(3) =  0.0_dp
        s1(4) = div2*(D(1)-D(2))
-       s1 = s1*(Particles % dvdxmdudy)       
+       s1 = s1*(Particles % dvdxmdudy)
 
        IF (ALL(s1 == 0.0_dp)) THEN
           dD = 0.0_dp
@@ -12763,8 +12882,8 @@ CONTAINS
        !-------------S2--------------!
        ! s2 = f(t+h/3,D+h/3*s1)
        !CALL dDdt(new_D_1,s2)
-       s2(1) = -new_D_1(4)                
-       s2(2) =  new_D_1(4) 
+       s2(1) = -new_D_1(4)
+       s2(2) =  new_D_1(4)
        s2(3) =  0.0_dp
        s2(4) = div2*(new_D_1(1)-new_D_1(2))
        s2 = s2*(Particles % dvdxmdudy)
@@ -12774,33 +12893,33 @@ CONTAINS
        !-------------S3--------------!
        ! s3=f(t+h/3,D+h/6*s1+h/6*s2)
        !CALL dDdt(new_D_1,s3)
-       s3(1) = -new_D_1(4)                
-       s3(2) =  new_D_1(4) 
+       s3(1) = -new_D_1(4)
+       s3(2) =  new_D_1(4)
        s3(3) =  0.0_dp
        s3(4) = div2*(new_D_1(1)-new_D_1(2))
        s3 = s3*(Particles % dvdxmdudy)
 
        new_D_1 = D + hh8*(s2+3.0_dp*s3)
        CALL FixPrincipalDamage(new_D_1,critdam)
-       !-------------S4--------------!       
+       !-------------S4--------------!
        ! s4=f(t+h/2,D+h/8*(s2+3*s3))
        !CALL dDdt(new_D_1,s4)
-       s4(1) = -new_D_1(4)                
-       s4(2) =  new_D_1(4) 
+       s4(1) = -new_D_1(4)
+       s4(2) =  new_D_1(4)
        s4(3) =  0.0_dp
        s4(4) = div2*(new_D_1(1)-new_D_1(2))
-       s4 = s4*(Particles % dvdxmdudy)       
+       s4 = s4*(Particles % dvdxmdudy)
        new_D_1 = D + hh2*(s1-3.0_dp*s3+4.0_dp*s4)
        CALL FixPrincipalDamage(new_D_1,critdam)
 
        !-------------S5--------------!
        ! s5=f(t+h,D+h/2*(s1-3*s3+4*s4))
        !CALL dDdt(new_D_1,s5)
-       s5(1) = -new_D_1(4)                
-       s5(2) =  new_D_1(4) 
+       s5(1) = -new_D_1(4)
+       s5(2) =  new_D_1(4)
        s5(3) =  0.0_dp
        s5(4) = div2*(new_D_1(1)-new_D_1(2))
-       s5 = s5*(Particles % dvdxmdudy)       
+       s5 = s5*(Particles % dvdxmdudy)
 
        ! calculate values at t+h
        new_D_1 = D + hh6*(s1+4.0_dp*s4+s5)
@@ -12876,7 +12995,7 @@ CONTAINS
     REAL(KIND=dp) :: EigValues(2),EigenVec(2,2),WORK(68)
     REAL(KIND=dp) :: EigValues3(3),sigmaeigval3,Q(4)
     REAL(KIND=dp) :: Dxx,Dyy,Dzz,Dxy,Peff,td1,ps1,ps2,ps3,lmod,chi,determ
-    INTEGER :: infor,mm,nn,ii 
+    INTEGER :: infor,mm,nn,ii
     LOGICAL :: Visited=.FALSE.
     TYPE(Particle_t),  POINTER :: Particles
 
@@ -12890,7 +13009,7 @@ CONTAINS
 
     REAL(KIND=dp) :: e1, e2, e3, e1b,e2b,e3b
     REAL(KIND=dp) :: ez,tet,met,a12s
-    REAL(KIND=dp) :: TraceEtau2,vo1(3,3),vo2(3,3),vo3(3,3),voutprod1(3,3)    
+    REAL(KIND=dp) :: TraceEtau2,vo1(3,3),vo2(3,3),vo3(3,3),voutprod1(3,3)
 
     SAVE :: ah,Bh,k1,k2,rf,sthres,Identity,Visited,pcont,psr,maxtracesigma,&
          Tau,Etau !,voutprod
@@ -12908,7 +13027,7 @@ CONTAINS
        ! Bf = Particles % bf
        Bh = Particles % bh
        k1 = Particles % k1
-       k2 = Particles % k2       
+       k2 = Particles % k2
        rf = Particles % rf
        sthres = Particles % sthres
 
@@ -12935,8 +13054,8 @@ CONTAINS
     IF (Particles % prupt .AND. Particles % noevolveruptlayers) THEN
 
        IF (Particles % CurrentGamma > zero) THEN
-          f12rhs = D(4) * (Particles % dvdxmdudy)  
-          !spin contribution 
+          f12rhs = D(4) * (Particles % dvdxmdudy)
+          !spin contribution
           f(1) = -f12rhs
           f(2) = f12rhs
           f(3) = zero
@@ -12976,7 +13095,7 @@ CONTAINS
     ! !deviatoric stress tensor:
     ! Tau = Particles % RHS * ESR
 
-    !FAST VERSION:   
+    !FAST VERSION:
     exxd1m1 = psr(1,1)*(D(1)-one)
     eyyd2m1 = psr(2,2)*(D(2)-one)
     ezzd3m1 = psr(3,3)*(D(3)-one)
@@ -12993,12 +13112,23 @@ CONTAINS
     !------- effective pressure (Peff)------
     Peff = Particles % pressure1 - (Tau(1,1)+Tau(2,2))
 
+    IF (Particles % usetruecauchydamage) THEN
+       !Tau is now the true Cauchy stress, not deviatoric
+        Tau(1,1) = Tau(1,1) - Peff
+        Tau(2,2) = Tau(2,2) - Peff
+        Tau(3,3) = Tau(3,3) - Peff
+
+       !The vertical z component of actual effective cauchy stress, used later for
+       !caulculating the new Peff
+        sigmaeigval3 = (Tau(3,3))/(1.0_dp - D(3))
+    ENDIF
+
     !---- deviatoric effective stress (ETau) -----!
     !IDn1 = (I-D)^-1, expanded here for speed:
     denom = one/( D(4)*D(4) + D(1) + D(2) -D(1)*D(2) - one)
     t1d2m1 = Tau(1,1)*(D(2)-one)*denom
     t2d1m1 = Tau(2,2)*(D(1)-one)*denom
-    t3od3m1 = Tau(3,3)/(D(3)-one)     
+    t3od3m1 = Tau(3,3)/(D(3)-one)
     d4t4 = Tau(1,2)*D(4)*denom
 
     Etau(1,1) = onethird*(two*t1d2m1 - t2d1m1 +t3od3m1 -d4t4)
@@ -13006,6 +13136,10 @@ CONTAINS
     Etau(3,3) = onethird*(-t1d2m1 - t2d1m1 - two*t3od3m1 + two*d4t4)
     Etau(1,2) = half*denom*(tau(1,2)*(D(1)+D(2)-two) - D(4)*(Tau(1,1)+Tau(2,2)))
     Etau(2,1) = Etau(1,2)
+
+    IF (Particles % usetruecauchydamage) THEN
+       Peff = Etau(3,3)-sigmaeigval3
+    ENDIF
 
 
     !---- eigenvalues -----!
@@ -13025,10 +13159,10 @@ CONTAINS
        lambda(1)=EigValues(2)
     END IF
 
-    ! e3 = ETau(3,3)    
+    ! e3 = ETau(3,3)
 
     !-----max effective principal stress------
-    td1 = lambda(1)-Peff
+       td1 = lambda(1)-Peff
 
     !no change in damage
     IF (td1 < zero ) THEN !.AND. ALL(D==zero)) THEN
@@ -13036,8 +13170,8 @@ CONTAINS
        ! RETURN
 
        IF (Particles % CurrentGamma > zero) THEN
-          f12rhs = D(4) * (Particles % dvdxmdudy)  
-          !spin contribution 
+          f12rhs = D(4) * (Particles % dvdxmdudy)
+          !spin contribution
           f(1) = f(1) - f12rhs
           f(2) = f(2) + f12rhs
           f(4) = f(4) - half*(Particles % dvdxmdudy)*(D(2)-D(1))
@@ -13059,13 +13193,13 @@ CONTAINS
     !------- tracesigma (for kf) ------
     tracesigma = Tau(1,1)+Tau(2,2)+Tau(3,3)-three*Peff
     IF (tracesigma<zero) tracesigma = zero
-    IF (tracesigma>maxtracesigma) tracesigma = maxtracesigma    
+    IF (tracesigma>maxtracesigma) tracesigma = maxtracesigma
 
 
     !-----kf------
     ! tracesigma = ETau(1,1)+ETau(2,2)+ETau(3,3)-three*Peff
     ! IF (tracesigma<zero) tracesigma = zero
-    ! IF (tracesigma>maxtracesigma) tracesigma = maxtracesigma    
+    ! IF (tracesigma>maxtracesigma) tracesigma = maxtracesigma
     !e.g.  kf = 3.0_dp + 6.0_dp * tracesigma
     IF (tracesigma > Particles % stresshigh) Particles % stresshigh = tracesigma
     IF (tracesigma < Particles % stresslow) Particles % stresslow = tracesigma
@@ -13081,7 +13215,7 @@ CONTAINS
        EigValues3(2) = lambda(2) - Peff
        EigValues3(3) = sigmaeigval3
 
-       ! 2d 
+       ! 2d
        ! IF (ALL(EigValues3(1:2) > 0.0_dp)) THEN
        !    lmod = 1.0_dp - MINVAL(EigValues3(1:2))/MAXVAL(EigValues3(1:2))
        !    gamma = gamma*lmod
@@ -13120,7 +13254,7 @@ CONTAINS
 
        CALL Eigen2DSym_TryGenFirst_VecOnly(ETau(1:2,1:2),lambda(1:2),EigValues,EigenVec)
 
-       maxvec(1:2) = EigenVec(1:2,2)    
+       maxvec(1:2) = EigenVec(1:2,2)
        maxvec(3) = zero
 
        voutprod(:,1) = maxvec(1) * maxvec(:)
@@ -13147,7 +13281,7 @@ CONTAINS
           END IF
        END IF
 
-       maxvec(1:2) = EigenVec(1:2,2)    
+       maxvec(1:2) = EigenVec(1:2,2)
        maxvec(3) = zero
 
        voutprod(:,1) = maxvec(1) * maxvec(:)
@@ -13162,6 +13296,8 @@ CONTAINS
     Rd(1,1) = Rd(1,1) + rdg
     Rd(2,2) = Rd(2,2) + rdg
     Rd(3,3) = Rd(3,3) + (one-gamma)
+
+    IF (Particles % forcedzz) Rd(3,3) = 1.0_dp
     !Particles % CurrentGamma) !rdg
     !rd(3,3) will always be zero. And using currentgamma for z right now
     !to test the effect of only applying  modified murikami to horizontal dirs
@@ -13197,7 +13333,7 @@ CONTAINS
 
        Q = D
        CALL removemaxd(Q)
-       denom = one/( Q(4)*Q(4) + Q(1) + Q(2) -Q(1)*Q(2) - one)       
+       denom = one/( Q(4)*Q(4) + Q(1) + Q(2) -Q(1)*Q(2) - one)
 
        mur88 = (voutprod(1,1)*(Q(2)-one) + voutprod(2,2)*(Q(1)-one) &
             - two*Q(4)*voutprod(1,2) ) * denom
@@ -13208,7 +13344,7 @@ CONTAINS
             - two*D(4)*voutprod(1,2) ) * denom
 
        !note that "- voutprod(3,3)/(D(3)-one)" is not needed above
-       !because voutprod(3,3) is always zero in the current implementation       
+       !because voutprod(3,3) is always zero in the current implementation
     END IF
 
 
@@ -13223,9 +13359,9 @@ CONTAINS
     f(1) = fd(1,1)                !dDxx/dt
     f(2) = fd(2,2)                !dDyy/dt
     f(3) = fd(3,3)                !dDzz/dt
-    f(4) = fd(1,2)                !dDxy/dt and dDyx/dt    
+    f(4) = fd(1,2)                !dDxy/dt and dDyx/dt
 
-    !2. spin contribution 
+    !2. spin contribution
     f12rhs = D(4) * (Particles % dvdxmdudy)
     r(1) = -f12rhs
     r(2) = f12rhs
@@ -13255,9 +13391,9 @@ CONTAINS
     REAL(KIND=dp),ALLOCATABLE :: Basis(:),dBasisdx(:,:)
     LOGICAL :: gotit,Visited=.FALSE.,UpdateB,stat
     LOGICAL :: movegl, ConstantMB, ConstantEF, ConstantFP
-    TYPE(Variable_t), POINTER :: mask, MB, EF, F, B, Zs, V,Bed, HVar 
+    TYPE(Variable_t), POINTER :: mask, MB, EF, F, B, Zs, V,Bed, HVar
     INTEGER, POINTER :: maskPerm(:),MBPerm(:),EFPerm(:),FPerm(:),&
-         BPerm(:),ZsPerm(:),VPerm(:),BedPerm(:),LocalPerm(:),HPerm(:) 
+         BPerm(:),ZsPerm(:),VPerm(:),BedPerm(:),LocalPerm(:),HPerm(:)
     REAL(KIND=dp), POINTER :: maskVal(:),MBVal(:),EFVal(:),FVal(:),&
          BVal(:),ZsVal(:), VVal(:), BedVal(:),HVal(:)
     REAL(KIND=dp), POINTER :: ZsLocalField(:),FPLocalField(:),BLocalField(:),&
@@ -13297,10 +13433,10 @@ CONTAINS
             BLocalField(nn),MaskLocalField(nn),&
             EFLocalField(nn), VLocalField(nn,dim), &
             BedLocalField(nn), MBLocalField(nn),LocalPerm(nn),&
-            HLocalField(nn))      
+            HLocalField(nn))
 
 
-       rhoi = Particles % rhoi     
+       rhoi = Particles % rhoi
        rhow = Particles % rhow
 
 
@@ -13311,18 +13447,18 @@ CONTAINS
 
        HVar => VariableGet(Model % Mesh % Variables, 'H' )
        HPerm => HVar % Perm
-       HVal => HVar % Values          
+       HVal => HVar % Values
 
        IF (ConstantMB) THEN
           mbparam = GetConstReal( Model % Constants, 'mbparam', GotIt )
           IF (.NOT. GotIt) CALL Fatal(SolverName, &
-               'Need to define "mbparam = Real $mbparam" in constants') 
+               'Need to define "mbparam = Real $mbparam" in constants')
        END IF
 
        IF (ConstantEF) THEN
           efparam = GetConstReal( Model % Constants, 'efparam', GotIt )
           IF (.NOT. GotIt) CALL Fatal(SolverName, &
-               'Need to define "efparam = Real $efparam" in constants') 
+               'Need to define "efparam = Real $efparam" in constants')
        END IF
 
        IF (ConstantFP) THEN
@@ -13351,7 +13487,7 @@ CONTAINS
        IF (.NOT. ConstantFP) THEN
           F => VariableGet(Model % Mesh % Variables, 'FP' )
           FPerm => F % Perm
-          FVal => F % Values   
+          FVal => F % Values
        END IF
 
        IF ((.NOT.  Particles % constlintemp) .AND. &
@@ -13370,7 +13506,7 @@ CONTAINS
 
        Zs => VariableGet(Model % Mesh % Variables, 'Zs' )
        ZsPerm => Zs % Perm
-       ZsVal => Zs % Values     
+       ZsVal => Zs % Values
 
        V => VariableGet(Model % Mesh % Variables, 'SSAVelocity' )
        VPerm => V % Perm
@@ -13386,7 +13522,7 @@ CONTAINS
        min_first_ef =  MINVAL(Particles % EF(1:Particles % numberofparticles))
        max_first_ef =  MAXVAL(Particles % EF(1:Particles % numberofparticles))
 
-       PRINT *,'min_first_binit',min_first_binit       
+       PRINT *,'min_first_binit',min_first_binit
        PRINT *,'min_first_ef',min_first_ef
        PRINT *,'max_first_ef',max_first_ef
 
@@ -13396,7 +13532,7 @@ CONTAINS
 
 
     CALL Info(SolverName,&
-         'Starting SSA Prep: Mesh to Particles',Level=1)
+         'Starting SSA Prep: Mesh to Particles',Level=3)
 
     !-----------INITIALIZATION---------------!
 
@@ -13424,7 +13560,7 @@ CONTAINS
     END DO
 
     Particles % Gmask = 0.0_dp
-    Particles % GradH = 0.0_dp    
+    Particles % GradH = 0.0_dp
     Particles % GradZs = 0.0_dp
     Particles % GradVel = 0.0_dp
 
@@ -13538,10 +13674,10 @@ CONTAINS
              IF (Particles % ShapeFunctions == 'gimpm') THEN
                 stat = GIMPMElementInfo( t,Particles, Model,BulkElement, ElementNodes, No, &
                      detJ, scale, .TRUE., Basis,dBasisdx)
-             ELSE      
+             ELSE
 
                 stat = sMPMElementInfo( Bulkelement, Particles, Model, ElementNodes, No, &
-                     Particles % gridres, Basis,dBasisdx)                    
+                     Particles % gridres, Basis,dBasisdx)
                 scale = 1.0_dp
              END IF
 
@@ -13555,7 +13691,7 @@ CONTAINS
                      SUM(dBasisdx(1:nn,jj) * ZsLocalField(1:nn)) * scale
 
                 Particles % GradH(No,jj) = Particles % GradH(No,jj) + &
-                     SUM(dBasisdx(1:nn,jj) * HLocalField(1:nn)) * scale                
+                     SUM(dBasisdx(1:nn,jj) * HLocalField(1:nn)) * scale
              END DO
 
              !dvx/dx
@@ -13590,7 +13726,7 @@ CONTAINS
              IF (Particles % xpic(No,1) .NE. 1.0_dp) THEN
                 Particles % Gmask(No) = 1.0_dp
              ELSE
-                MaskLocalField = maskVal(MaskPerm(NodeIndexes)) 
+                MaskLocalField = maskVal(MaskPerm(NodeIndexes))
                 Particles % Gmask(No) = Particles % Gmask(No) + &
                      SUM(Basis(1:nn) * maskLocalField(1:nn)) * scale
              END IF
@@ -13609,13 +13745,6 @@ CONTAINS
                 Particles % FP(No) = Particles % FP(No) + &
                      SUM(Basis(1:nn) * FPLocalField(1:nn)) * scale
              END IF
-
-             IF (Particles % SteadyAlbrecht) THEN
-                IF (Particles % Coordinate(No,1) + 0.5_dp*Particles % Length(No,1) < 0.0_dp) THEN
-                   Particles % H(No) = Particles % H(No) + SUM(Basis(1:nn) * HVal(HPerm(NodeIndexes))) * scale
-                END IF
-             END IF
-
 
           END DO !particle loop
 
@@ -13646,9 +13775,9 @@ CONTAINS
              IF (Particles % ShapeFunctions == 'gimpm') THEN
                 stat = GIMPMElementInfo( t,Particles, Model,BulkElement, ElementNodes, No, &
                      detJ, scale, .TRUE., Basis,dBasisdx)
-             ELSE      
+             ELSE
                 stat = sMPMElementInfo( Bulkelement, Particles, Model, ElementNodes, No, &
-                     Particles % gridres, Basis,dBasisdx)                    
+                     Particles % gridres, Basis,dBasisdx)
                 scale = 1.0_dp
              END IF
 
@@ -13662,7 +13791,7 @@ CONTAINS
                      SUM(dBasisdx(1:nn,jj) * ZsLocalField(1:nn)) * scale
 
                 Particles % GradH(No,jj) = Particles % GradH(No,jj) + &
-                     SUM(dBasisdx(1:nn,jj) * HLocalField(1:nn)) * scale                    
+                     SUM(dBasisdx(1:nn,jj) * HLocalField(1:nn)) * scale
              END DO
 
              !dvx/dx
@@ -13699,7 +13828,7 @@ CONTAINS
              IF (Particles % xpic(No,1) .NE. 1.0_dp) THEN
                 Particles % Gmask(No) = -1.0_dp
              ELSE
-                MaskLocalField(1:nn) = maskVal(MaskPerm(NodeIndexes)) 
+                MaskLocalField(1:nn) = maskVal(MaskPerm(NodeIndexes))
                 Particles % Gmask(No) = Particles % Gmask(No) + &
                      SUM(Basis(1:nn) * maskLocalField(1:nn)) * scale
              END IF
@@ -13745,7 +13874,7 @@ CONTAINS
 
           IF (UpdateB) BLocalField = BVal(BPerm(NodeIndexes))
 
-          MaskLocalField = maskVal(MaskPerm(NodeIndexes)) 
+          MaskLocalField = maskVal(MaskPerm(NodeIndexes))
 
           DO t = 1, ElemParticles(ii) % NumberOfParticles
              No = ElemParticles(ii) % p(t)
@@ -13753,9 +13882,9 @@ CONTAINS
              IF (Particles % ShapeFunctions == 'gimpm') THEN
                 stat = GIMPMElementInfo( t,Particles, Model,BulkElement, ElementNodes, No, &
                      detJ, scale, .TRUE., Basis,dBasisdx)
-             ELSE      
+             ELSE
                 stat = sMPMElementInfo( Bulkelement, Particles, Model, ElementNodes, No, &
-                     Particles % gridres, Basis,dBasisdx)                    
+                     Particles % gridres, Basis,dBasisdx)
                 scale = 1.0_dp
              END IF
 
@@ -13769,7 +13898,7 @@ CONTAINS
                      SUM(dBasisdx(1:nn,jj) * ZsLocalField(1:nn)) * scale
 
                 Particles % GradH(No,jj) = Particles % GradH(No,jj) + &
-                     SUM(dBasisdx(1:nn,jj) * HLocalField(1:nn)) * scale                    
+                     SUM(dBasisdx(1:nn,jj) * HLocalField(1:nn)) * scale
              END DO
 
              !dvx/dx
@@ -13848,11 +13977,11 @@ CONTAINS
           END IF
 
           IF (Particles % UseInterpElem(No)) THEN
-             !IF (Particles % UseInterpElem(No) .OR. Particles % Status(No)==PARTICLE_LEAVING) THEN             
+             !IF (Particles % UseInterpElem(No) .OR. Particles % Status(No)==PARTICLE_LEAVING) THEN
              Particles % EF(No) = Particles % XPIC(No,2)
              Particles % FP(No) = MAX(Particles % XPIC(No,3),0.0_dp)
              Particles % Binit(No) = Particles % xpic(No,5)
-          ELSE          
+          ELSE
              IF (.NOT. UpdateB) CYCLE
              IF (Particles % GMask(No) >= 0.9_dp) CYCLE
              IF (ANY(Particles % Dav(No,:).NE.0.0_dp)) CYCLE
@@ -13888,7 +14017,7 @@ CONTAINS
             Particles % binit(1:Particles % NumberOfParticles) = Particles % XPIC(1:Particles % NumberofParticles,5)
        WHERE (Particles % binit(1:Particles % NumberOfParticles) .NE. &
             Particles % binit(1:Particles % NumberOfParticles)) &
-            Particles % binit(1:Particles % NumberOfParticles) = min_first_binit      
+            Particles % binit(1:Particles % NumberOfParticles) = min_first_binit
        WHERE (Particles % binit(1:Particles % NumberOfParticles) < min_first_binit) &
             Particles % binit(1:Particles % NumberOfParticles) = min_first_binit
     END IF
@@ -13961,7 +14090,7 @@ CONTAINS
           PRINT *,'damagenan no: ',no
           PRINT *,'EffSR:        ',EFFSR
           PRINT *,'SRThres :     ',SRThres
-          PRINT *,'K:            ',K 
+          PRINT *,'K:            ',K
           PRINT *,' '
        END IF
 
@@ -13969,7 +14098,7 @@ CONTAINS
 
     IF (D<Particles % Dav(No,1)) D = Particles % Dav(No,1)
     Particles % Dav(No,1) = D
-    dDBorstad = (D - Dinit) 
+    dDBorstad = (D - Dinit)
 
   END SUBROUTINE BorstadDamage
 
@@ -13994,13 +14123,13 @@ CONTAINS
 
     w = EigValues(1)*EigenVec(1,1)
     ! x = EigValues(2)*EigenVec(1,2)
-    y = EigValues(1)*EigenVec(2,1) 
+    y = EigValues(1)*EigenVec(2,1)
     !  z = EigValues(2)*EigenVec(2,2)
 
     D(1) = EigenVec(1,1)*w !+ EigenVec(1,2)*x
     D(2) = EigenVec(2,1)*y !+ EigenVec(2,2)*z
     D(4) = EigenVec(2,1)*w !+ EigenVec(2,2)*x
-    ! D(4) = D(1,2)       
+    ! D(4) = D(1,2)
 
 
   END SUBROUTINE removemaxd
@@ -14024,7 +14153,7 @@ CONTAINS
     INTEGER :: infor
     TYPE(Particle_t),  POINTER :: Particles
 
-    Particles => GlobalParticles    
+    Particles => GlobalParticles
 
     T=a(1,1)+a(2,2)
     D=a(1,1)*a(2,2)-a(1,2)*a(2,1)
@@ -14068,7 +14197,7 @@ CONTAINS
 
   END SUBROUTINE Eigen2Db
 
-  !**************************************************************************  
+  !**************************************************************************
 
   ! Return eigenvalues (lambda) of 2x2 matrice a
   ! Return eigenvectors (columns of e) of 2x2 matrice a
@@ -14087,7 +14216,7 @@ CONTAINS
     INTEGER :: infor
 
     EigenVec = a
-    CALL DSYEV('V', 'U', 2, EigenVec, 2, EigValues, Work, 68, infor)    
+    CALL DSYEV('V', 'U', 2, EigenVec, 2, EigValues, Work, 68, infor)
     IF (infor.ne.0) CALL FATAL('Compute EigenValues', 'Failed to compute EigenValues')
 
     eout = EigenVec
@@ -14115,7 +14244,7 @@ CONTAINS
     sqrteig = quart*T*T-D
     IF (sqrteig<0.0_dp) sqrteig = 0.0_dp
     sqrteig = sqrt(sqrteig)
-    T = half*T    
+    T = half*T
     EigValues(1)=T-sqrteig
     EigValues(2)=T+sqrteig
 
@@ -14143,7 +14272,7 @@ CONTAINS
     sqrteig = quart*T*T-D
     IF (sqrteig<0.0_dp) sqrteig = 0.0_dp
     sqrteig = sqrt(sqrteig)
-    ! T = half*T    
+    ! T = half*T
     !  EigValues(1)=T-sqrteig
     lmaxval=half*T+sqrteig
 
@@ -14173,7 +14302,7 @@ CONTAINS
     IF (sqrteig<0.0_dp) sqrteig = 0.0_dp
 
     sqrteig = sqrt(sqrteig)
-    T = half*T    
+    T = half*T
     EigValues(1)=T-sqrteig
     EigValues(2)=T+sqrteig
 
@@ -14185,10 +14314,10 @@ CONTAINS
 
     IF (a(1,2)==zero) THEN
        IF (a(2,2)>a(1,1)) THEN
-          EigenVec(1,1) = one 
-          EigenVec(2,1) = zero 
-          EigenVec(1,2) = zero 
-          EigenVec(2,2) = one 
+          EigenVec(1,1) = one
+          EigenVec(2,1) = zero
+          EigenVec(1,2) = zero
+          EigenVec(2,2) = one
        ELSE
           EigenVec(1,1) = zero
           EigenVec(2,1) = one
@@ -14239,7 +14368,7 @@ CONTAINS
     ! !eigenvalues:
     ! !2 is the biggest
     ! sqrteig = sqrt(quart*T*T-D)
-    ! T = half*T    
+    ! T = half*T
     ! EigValues(1)=T-sqrteig
     ! EigValues(2)=T+sqrteig
 
@@ -14249,10 +14378,10 @@ CONTAINS
 
     IF (a(1,2)==zero) THEN
        IF (a(2,2)>a(1,1)) THEN
-          EigenVec(1,1) = one 
-          EigenVec(2,1) = zero 
-          EigenVec(1,2) = zero 
-          EigenVec(2,2) = one 
+          EigenVec(1,1) = one
+          EigenVec(2,1) = zero
+          EigenVec(1,2) = zero
+          EigenVec(2,2) = one
        ELSE
           EigenVec(1,1) = zero
           EigenVec(2,1) = one
@@ -14289,4 +14418,3 @@ CONTAINS
   !**************************************************************************
 
 END MODULE MPMUtils
-
