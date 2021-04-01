@@ -9,7 +9,7 @@ This repository contains the GIMPM-SSA-Damage model detailed in:
 
       Huth, A., Duddu, R., Smith, B.E. (2021a). A generalized interpolation material point method for shallow ice shelves. Part I: shallow shelf approximation and ice thickness evolution.
 
-      Huth, A., Duddu, R., & Smith, B. E. (2021b). A generalized interpolation material point method for shallow ice shelves. Part II: Anisotropic nonloacl damage mechanics and rift propagation.
+      Huth, A., Duddu, R., & Smith, B. E. (2021b). A generalized interpolation material point method for shallow ice shelves. Part II: Anisotropic nonlocal damage mechanics and rift propagation.
 
 (manuscripts currently in review)
 
