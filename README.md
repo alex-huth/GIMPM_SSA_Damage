@@ -11,8 +11,6 @@ Huth, A., Duddu, R., & Smith, B. (2021a). A generalized interpolation material p
 
 Huth, A., Duddu, R., & Smith, B. (2021b). A generalized interpolation material point method for shallow ice shelves. 2: Anisotropic nonlocal damage mechanics and rift propagation. Journal of Advances in Modeling Earth Systems, 13, e2020MS002292. https://doi.org/10.1029/2020MS002292
 
-(manuscripts currently in review)
-
 In addition to the GIMPM, this code also includes the standard Material Point Method (sMPM)
 
 Damage models included (see Huth et al., 2021b for details):
