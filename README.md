@@ -3,7 +3,7 @@
 The Generalized Interpolation Material Point Method (GIMPM) for the
 Shallow Shelf Approximation (SSA) of ice flow with Damage
 
-Developer: Alex Huth (ahuth@princeton.edu)
+Developer: Alex Huth (Alexander.Huth@noaa.gov ; ahuth@princeton.edu)
 
 This repository contains the GIMPM-SSA-Damage model detailed in:
 
@@ -30,3 +30,4 @@ Each directory contains a README with instructions for running the examples.
 - An installation and knowledge of Elmer FEM and Elmer/Ice is required
   - https://github.com/ElmerCSC/elmerfem
   - https://elmerfem.org/elmerice/wiki/
+- Tested with Elmer v 9.0

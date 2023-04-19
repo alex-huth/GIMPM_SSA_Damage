@@ -1285,8 +1285,8 @@ FUNCTION MPMTimestep( Model ) RESULT( dt )
      vtime => VariableGet(Mesh % Variables, 'time')
      vtime % Values(1) = 0.0_dp
 
-     Particles % time = 0.0_dp
-     Particles % dtime = 0.0_dp
+     Particles % dtime = EPSILON(0.0_dp)
+     Particles % time = 0.0
   END IF
 
   dt = Particles % dtime
@@ -1371,8 +1371,8 @@ FUNCTION SSATimestep( Model ) RESULT( dt )
   END IF
 
   IF (VisitedTimes == 0 .AND. Particles % firsttimestepzero) THEN
-     dt = 0.0_dp
-     Particles % time = 0.0_dp
+     dt = EPSILON(0.0_dp)
+     Particles % time = -dt
   END IF
 
 
@@ -1795,7 +1795,6 @@ SUBROUTINE UpdateCreepDamage( Model,Solver,dt,TransientSimulation )
 
 
      Visited = .TRUE.
-
   END IF
 
 !!!!------------------------------------ END FIRST TIME ONLY -------------------------------!!!!!

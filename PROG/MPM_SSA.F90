@@ -1,4 +1,3 @@
-
 !> The SSASolver edited for use with MPM (GIMPM or sMPM). The essential difference
 !! for the MPM version is that particles (material points) serve as the integration
 !! points. Variables that update each iteration are mapped to material points in the
@@ -1480,7 +1479,7 @@ CONTAINS
     REAL(KIND=dp) :: g, rho, dhdx, dhdy , gravity, density,gridres,Hnew,rhoscale
     REAL(KIND=dp) :: beta, LinVelo, fC, fN, alpha, fB, velgradscale
     REAL(KIND=dp) :: gradS(2), A(2,2), StrainA(2,2), StrainB(2,2)
-    REAL(KIND=dp) :: Exx, Eyy, Exy, Ezz, Ee, MinSRInv ,MinH, h2
+    REAL(KIND=dp) :: MinSRInv ,MinH, h2
     REAL(KIND=dp) :: rhow,minN,PostPeak,FricMaxVal,sealevel,bedrock,hf,diff
     REAL(KIND=dp) :: Jac(2*n,2*n), SOL(2*n), scale,LocalDistance,&
          SqrtElementMetric,txx,tyy,tzz,txy,ds,hab,db,d1,t0,fedir(3,3),zero=0.0_dp
@@ -1497,7 +1496,8 @@ CONTAINS
     REAL(KIND=dp),POINTER :: h,Dxx,Dyy,Dzz,Dxy,&
          eta,muder,slip,slip2,&
          Velo(:),DSRxx,DSRyy,&
-         DSRxy,driveforce(:),ub,falpha(:)
+         DSRxy,driveforce(:),ub,falpha(:),&
+         Exx,Eyy,Exy
     REAL(KIND=dp) :: North,South,East,West,newpg(2),nxmax,nxmin,nymax,nymin
     REAL(KIND=dp) :: EV(3,3),xc,yc,xf,yf,slope,bf,nxx,nyy,xi,yi,xi_diff,xc_diff,&
          yi_diff,yc_diff,fafin(n,2),xis,xcs,yis,ycs
@@ -1591,7 +1591,12 @@ CONTAINS
        slip       =>  MP % slip(No)
        driveforce =>  MP % driveforce(No,1:2)
 
-
+       IF (NewtonLin) THEN
+          Exx => Particles % GradVel(No,1)
+          Eyy => Particles % GradVel(No,2)
+          Exy => MP % Exy(No)
+        END IF
+        
        IF (iFriction>1) THEN
           slip2   => MP % slip2(No)
           ub      => MP % ub(No)
@@ -1600,27 +1605,6 @@ CONTAINS
 
        IF ((iFriction == 2).AND.(fm==1.0_dp)) iFriction=1
        IF (iFriction==1) fNewtonLin = .FALSE.
-
-       StrainA=0.0_dp
-       StrainB=0.0_dp
-
-       IF (NewtonLin) THEN
-          StrainA(1,1)=2.0_dp*Particles % GradVel(No,1) !Exx
-
-          IF (STDOFs.EQ.2) THEN
-             StrainB(1,1)= 0.5_dp * Particles % GradVel(No,3)
-
-             StrainA(1,2)=Particles % GradVel(No,2) !Eyy
-             StrainB(1,2)=0.5_dp * Particles % GradVel(No,4)
-
-             StrainA(2,1)=Particles % GradVel(No,1) !Exx
-             StrainB(2,1)=0.5_dp * Particles % GradVel(No,3)
-
-             StrainA(2,2)=2.0_dp*Particles % GradVel(No,2) !Eyy
-             StrainB(2,2)=0.5_dp * Particles % GradVel(No,4)
-          END IF
-       END IF
-
 
        A = 0.0_dp
        DO p=1,n
@@ -1668,33 +1652,34 @@ CONTAINS
                            Slip2 * Velo(i) * Velo(j) * Basis2(q) * Basis(p) * detJ
                    END DO
                 END DO
-             END IF
+              END IF
 
              IF (NewtonLin) then
                 IF (STDOFs.EQ.1) THEN
                    Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+1) = Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+1) +&
-                        detJ * 2.0_dp * h * StrainA(1,1) *dBasisdx(p,1) * &
-                        muder * 2.0_dp * DSRxx * dBasisdx2(q,1)
-                ELSE IF (STDOFs.EQ.2) THEN
+                        detJ * 2.0_dp * h * 2.0_dp*DSRxx *dBasisdx(p,1) * &
+                        muder * 2.0_dp * Exx * dBasisdx2(q,1)
+                 ELSE IF (STDOFs.EQ.2) THEN
+
                    Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+1) = Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+1) +&
-                        detJ * 2.0_dp * h * ((StrainA(1,1)+StrainA(1,2))*dBasisdx(p,1)+ &
-                        (StrainB(1,1)+StrainB(1,2))*dBasisdx(p,2)) * muder *((2.0_dp*DSRxx+DSRyy)*&
-                        dBasisdx2(q,1)+DSRxy*dBasisdx2(q,2))
+                        detJ * 2.0_dp * h * ((2.0_dp*DSRxx + DSRyy)*dBasisdx(p,1)+ &
+                        DSRxy*dBasisdx(p,2)) * muder *((2.0_dp*Exx+Eyy)*&
+                        dBasisdx2(q,1)+Exy*dBasisdx2(q,2))
 
                    Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+2) = Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+2) +&
-                        detJ * 2.0_dp * h * ((StrainA(1,1)+StrainA(1,2))*dBasisdx(p,1)+ &
-                        (StrainB(1,1)+StrainB(1,2))*dBasisdx(p,2)) * muder *((2.0_dp*DSRyy+DSRxx)*&
-                        dBasisdx2(q,2)+DSRxy*dBasisdx2(q,1))
+                        detJ * 2.0_dp * h * ((2.0_dp*DSRxx + DSRyy)*dBasisdx(p,1)+ &
+                        DSRxy*dBasisdx(p,2)) * muder *((2.0_dp*Eyy+Exx)*&
+                        dBasisdx2(q,2)+Exy*dBasisdx2(q,1))
 
                    Jac((STDOFs)*(p-1)+2,(STDOFs)*(q-1)+1) = Jac((STDOFs)*(p-1)+2,(STDOFs)*(q-1)+1) +&
-                        detJ * 2.0_dp * h * ((StrainA(2,1)+StrainA(2,2))*dBasisdx(p,2)+ &
-                        (StrainB(2,1)+StrainB(2,2))*dBasisdx(p,1)) * muder *((2.0_dp*DSRxx+DSRyy)*&
-                        dBasisdx2(q,1)+DSRxy*dBasisdx2(q,2))
+                        detJ * 2.0_dp * h * ((DSRxx + 2.0_dp*DSRyy)*dBasisdx(p,2)+ &
+                        DSRxy*dBasisdx(p,1)) * muder *((2.0_dp*Exx+Eyy)*&
+                        dBasisdx2(q,1)+Exy*dBasisdx2(q,2))
 
                    Jac((STDOFs)*(p-1)+2,(STDOFs)*(q-1)+2) = Jac((STDOFs)*(p-1)+2,(STDOFs)*(q-1)+2) +&
-                        detJ * 2.0_dp * h * ((StrainA(2,1)+StrainA(2,2))*dBasisdx(p,2)+ &
-                        (StrainB(2,1)+StrainB(2,2))*dBasisdx(p,1)) * muder *((2.0_dp*DSRyy+DSRxx)*&
-                        dBasisdx2(q,2)+DSRxy*dBasisdx2(q,1))
+                        detJ * 2.0_dp * h * ((DSRxx + 2.0_dp*DSRyy)*dBasisdx(p,2)+ &
+                        DSRxy*dBasisdx(p,1)) * muder *((2.0_dp*Eyy+Exx)*&
+                        dBasisdx2(q,2)+Exy*dBasisdx2(q,1))
                 END IF
              END IF
 
@@ -2179,26 +2164,6 @@ CONTAINS
                Dxy*(Exx+Eyy))
        END IF
 
-
-       StrainA=0.0_dp
-       StrainB=0.0_dp
-       IF (NewtonLin) THEN
-          StrainA(1,1)=SUM(2.0_dp*dBasisdx(1:n,1)*LocalU(1:n))
-
-          IF (STDOFs.EQ.2) THEN
-             StrainB(1,1)=SUM(0.5_dp*dBasisdx(1:n,2)*LocalU(1:n))
-
-             StrainA(1,2)=SUM(dBasisdx(1:n,2)*LocalV(1:n))
-             StrainB(1,2)=SUM(0.5_dp*dBasisdx(1:n,1)*LocalV(1:n))
-
-             StrainA(2,1)=SUM(dBasisdx(1:n,1)*LocalU(1:n))
-             StrainB(2,1)=SUM(0.5_dp*dBasisdx(1:n,2)*LocalU(1:n))
-
-             StrainA(2,2)=SUM(2.0_dp*dBasisdx(1:n,2)*LocalV(1:n))
-             StrainB(2,2)=SUM(0.5_dp*dBasisdx(1:n,1)*LocalV(1:n))
-          END IF
-       END IF
-
        A = 0.0_dp
        DO p=1,n
           DO q=1,n
@@ -2245,28 +2210,29 @@ CONTAINS
              IF (NewtonLin) then
                 IF (STDOFs.EQ.1) THEN
                    Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+1) = Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+1) +&
-                        detJ * 2.0_dp * h * StrainA(1,1) *dBasisdx(p,1) * &
-                        muder * 2.0_dp * DSRxx * dBasisdx(q,1)
-                ELSE IF (STDOFs.EQ.2) THEN
+                        detJ * 2.0_dp * h * 2.0_dp*DSRxx *dBasisdx(p,1) * &
+                        muder * 2.0_dp * Exx * dBasisdx(q,1)
+                 ELSE IF (STDOFs.EQ.2) THEN
+
                    Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+1) = Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+1) +&
-                        detJ * 2.0_dp * h * ((StrainA(1,1)+StrainA(1,2))*dBasisdx(p,1)+ &
-                        (StrainB(1,1)+StrainB(1,2))*dBasisdx(p,2)) * muder *((2.0_dp*DSRxx+DSRyy)*&
-                        dBasisdx(q,1)+DSRxy*dBasisdx(q,2))
+                        detJ * 2.0_dp * h * ((2.0_dp*DSRxx + DSRyy)*dBasisdx(p,1)+ &
+                        DSRxy*dBasisdx(p,2)) * muder *((2.0_dp*Exx+Eyy)*&
+                        dBasisdx(q,1)+Exy*dBasisdx(q,2))
 
                    Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+2) = Jac((STDOFs)*(p-1)+1,(STDOFs)*(q-1)+2) +&
-                        detJ * 2.0_dp * h * ((StrainA(1,1)+StrainA(1,2))*dBasisdx(p,1)+ &
-                        (StrainB(1,1)+StrainB(1,2))*dBasisdx(p,2)) * muder *((2.0_dp*DSRyy+DSRxx)*&
-                        dBasisdx(q,2)+DSRxy*dBasisdx(q,1))
+                        detJ * 2.0_dp * h * ((2.0_dp*DSRxx + DSRyy)*dBasisdx(p,1)+ &
+                        DSRxy*dBasisdx(p,2)) * muder *((2.0_dp*Eyy+Exx)*&
+                        dBasisdx(q,2)+Exy*dBasisdx(q,1))
 
                    Jac((STDOFs)*(p-1)+2,(STDOFs)*(q-1)+1) = Jac((STDOFs)*(p-1)+2,(STDOFs)*(q-1)+1) +&
-                        detJ * 2.0_dp * h * ((StrainA(2,1)+StrainA(2,2))*dBasisdx(p,2)+ &
-                        (StrainB(2,1)+StrainB(2,2))*dBasisdx(p,1)) * muder *((2.0_dp*DSRxx+DSRyy)*&
-                        dBasisdx(q,1)+DSRxy*dBasisdx(q,2))
+                        detJ * 2.0_dp * h * ((DSRxx + 2.0_dp*DSRyy)*dBasisdx(p,2)+ &
+                        DSRxy*dBasisdx(p,1)) * muder *((2.0_dp*Exx+Eyy)*&
+                        dBasisdx(q,1)+Exy*dBasisdx(q,2))
 
                    Jac((STDOFs)*(p-1)+2,(STDOFs)*(q-1)+2) = Jac((STDOFs)*(p-1)+2,(STDOFs)*(q-1)+2) +&
-                        detJ * 2.0_dp * h * ((StrainA(2,1)+StrainA(2,2))*dBasisdx(p,2)+ &
-                        (StrainB(2,1)+StrainB(2,2))*dBasisdx(p,1)) * muder *((2.0_dp*DSRyy+DSRxx)*&
-                        dBasisdx(q,2)+DSRxy*dBasisdx(q,1))
+                        detJ * 2.0_dp * h * ((DSRxx + 2.0_dp*DSRyy)*dBasisdx(p,2)+ &
+                        DSRxy*dBasisdx(p,1)) * muder *((2.0_dp*Eyy+Exx)*&
+                        dBasisdx(q,2)+Exy*dBasisdx(q,1))
                 END IF
              END IF
 
@@ -2275,7 +2241,6 @@ CONTAINS
           DO i=1,STDOFs
              FORCE((STDOFs)*(p-1)+i) =   FORCE((STDOFs)*(p-1)+i) - &
                   rho*g*h*gradS(i) * IP % s(t) * detJ * Basis(p)
-             !was basis
           END DO
 
           IF ((fNewtonLin).AND.(iFriction>1)) THEN
